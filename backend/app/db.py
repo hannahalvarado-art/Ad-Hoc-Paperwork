@@ -174,11 +174,15 @@ def init_db() -> None:
     deadlocks rather than no-opping.
     """
     with connect() as conn:
-        conn.execute("SELECT pg_advisory_lock(%s)", (_MIGRATION_LOCK,))
+        # `?`, not `%s`: everything routed through Conn.execute is written in
+        # the codebase's sqlite3 style and translated. Passing psycopg's native
+        # `%s` here got escaped to `%%s`, so this threw, the caller logged it
+        # and carried on, and the schema was silently never created.
+        conn.execute("SELECT pg_advisory_lock(?)", (_MIGRATION_LOCK,))
         try:
             conn.executescript(SCHEMA_PATH.read_text())
         finally:
-            conn.execute("SELECT pg_advisory_unlock(%s)", (_MIGRATION_LOCK,))
+            conn.execute("SELECT pg_advisory_unlock(?)", (_MIGRATION_LOCK,))
 
 
 @contextmanager

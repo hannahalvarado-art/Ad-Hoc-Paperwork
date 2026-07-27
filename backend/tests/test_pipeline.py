@@ -330,6 +330,29 @@ class PlaceholderTranslation(unittest.TestCase):
         self.check("SELECT 1 -- what? \nWHERE a = ?", "SELECT 1 -- what? \nWHERE a = %s")
         self.check('SELECT "odd?col" WHERE a = ?', 'SELECT "odd?col" WHERE a = %s')
 
+    def test_internal_sql_uses_the_codebase_placeholder_style(self):
+        """db.py's own queries go through the same translation as everyone
+        else's, so writing psycopg-native `%s` there is a bug: it escapes to
+        `%%s` and the statement executes with nothing bound.
+
+        This shipped once. init_db()'s advisory lock was written with `%s`, so
+        the migration threw, the caller logged and continued, and the app
+        served 500s from a connected database with no tables.
+        """
+        import inspect
+
+        from app import db
+
+        src = inspect.getsource(db)
+        # Only look at SQL handed to Conn.execute, not the translator's own
+        # docs and replacement strings.
+        offenders = [
+            line.strip()
+            for line in src.splitlines()
+            if "conn.execute(" in line and "%s" in line
+        ]
+        self.assertEqual(offenders, [], f"use `?`, not `%s`, in db.py: {offenders}")
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
