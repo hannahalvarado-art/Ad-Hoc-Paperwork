@@ -150,39 +150,56 @@ def reconstruct_raw(data: list[dict]) -> list[dict]:
 
 
 def seed_config(conn, data: list[dict]) -> int:
+    """Postgres note: SQLite's INSERT OR IGNORE / OR REPLACE have no direct
+    equivalent, so each upsert names its conflict target explicitly. Rows come
+    back as dicts rather than tuples, so ids are read by name, not by index."""
     with tx(conn):
         conn.execute(
-            "INSERT OR IGNORE INTO periods (label, name, basis) VALUES (?, ?, ?)",
+            "INSERT INTO periods (label, name, basis) VALUES (?, ?, ?) "
+            "ON CONFLICT (label) DO NOTHING",
             (PERIOD["label"], PERIOD["name"], PERIOD["basis"]),
         )
         period_id = conn.execute(
             "SELECT id FROM periods WHERE label = ?", (PERIOD["label"],)
-        ).fetchone()[0]
+        ).fetchone()["id"]
 
         conn.executemany(
-            "INSERT OR REPLACE INTO settings (key, value, note) VALUES (?, ?, ?)", SETTINGS
+            "INSERT INTO settings (key, value, note) VALUES (?, ?, ?) "
+            "ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value, note=EXCLUDED.note",
+            SETTINGS,
         )
         conn.executemany(
-            "INSERT OR REPLACE INTO sf_accounts (account_id, name, csm, adhoc_price) "
-            "VALUES (?, ?, ?, ?)",
+            "INSERT INTO sf_accounts (account_id, name, csm, adhoc_price) "
+            "VALUES (?, ?, ?, ?) "
+            "ON CONFLICT (account_id) DO UPDATE SET "
+            "name=EXCLUDED.name, csm=EXCLUDED.csm, adhoc_price=EXCLUDED.adhoc_price",
             derive_accounts(data),
         )
         conn.executemany(
-            "INSERT OR REPLACE INTO customer_map "
-            "(source_customer, billing_customer, sf_account_id, reason) VALUES (?, ?, ?, ?)",
+            "INSERT INTO customer_map "
+            "(source_customer, billing_customer, sf_account_id, reason) VALUES (?, ?, ?, ?) "
+            "ON CONFLICT (source_customer) DO UPDATE SET "
+            "billing_customer=EXCLUDED.billing_customer, "
+            "sf_account_id=EXCLUDED.sf_account_id, reason=EXCLUDED.reason",
             CUSTOMER_MAP,
         )
         conn.executemany(
-            "INSERT OR REPLACE INTO excluded_customers (source_customer, reason) VALUES (?, ?)",
+            "INSERT INTO excluded_customers (source_customer, reason) VALUES (?, ?) "
+            "ON CONFLICT (source_customer) DO UPDATE SET reason=EXCLUDED.reason",
             EXCLUSIONS,
         )
 
         r = ENTITY_SPLIT
         conn.execute(
-            """INSERT OR REPLACE INTO entity_split_rules
+            """INSERT INTO entity_split_rules
                (source_customer, token_a, entity_a, token_b, entity_b,
                 default_entity, review_label)
-               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+               VALUES (?, ?, ?, ?, ?, ?, ?)
+               ON CONFLICT (source_customer) DO UPDATE SET
+                 token_a=EXCLUDED.token_a, entity_a=EXCLUDED.entity_a,
+                 token_b=EXCLUDED.token_b, entity_b=EXCLUDED.entity_b,
+                 default_entity=EXCLUDED.default_entity,
+                 review_label=EXCLUDED.review_label""",
             (
                 r["source_customer"], r["token_a"], r["entity_a"], r["token_b"],
                 r["entity_b"], r["default_entity"], r["review_label"],
@@ -191,10 +208,11 @@ def seed_config(conn, data: list[dict]) -> int:
         rule_id = conn.execute(
             "SELECT id FROM entity_split_rules WHERE source_customer = ?",
             (r["source_customer"],),
-        ).fetchone()[0]
+        ).fetchone()["id"]
         conn.executemany(
-            "INSERT OR IGNORE INTO entity_split_senders (rule_id, sender_name, resolves_to) "
-            "VALUES (?, ?, 'entity_b')",
+            "INSERT INTO entity_split_senders (rule_id, sender_name, resolves_to) "
+            "VALUES (?, ?, 'entity_b') "
+            "ON CONFLICT (rule_id, sender_name) DO NOTHING",
             [(rule_id, s) for s in r["senders"]],
         )
 
@@ -203,7 +221,8 @@ def seed_config(conn, data: list[dict]) -> int:
             (r["packet_id"], r["contract_name"]) for r in data if r.get("contract_name")
         }
         conn.executemany(
-            "INSERT OR REPLACE INTO contract_lookup (packet_id, contract_names) VALUES (?, ?)",
+            "INSERT INTO contract_lookup (packet_id, contract_names) VALUES (?, ?) "
+            "ON CONFLICT (packet_id) DO UPDATE SET contract_names=EXCLUDED.contract_names",
             sorted(pairs),
         )
 

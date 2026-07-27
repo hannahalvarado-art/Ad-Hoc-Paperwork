@@ -354,5 +354,43 @@ class PlaceholderTranslation(unittest.TestCase):
         self.assertEqual(offenders, [], f"use `?`, not `%s`, in db.py: {offenders}")
 
 
+class NoSQLiteDialectLeftBehind(unittest.TestCase):
+    """Postgres rejects SQLite's upsert spelling outright.
+
+    The port missed seed.py the first time round, and nothing failed until it
+    was run against a real database — by which point it had already dropped and
+    recreated the schema. A scan is cheaper than remembering.
+    """
+
+    SOURCES = ["app", "seed.py"]
+    # Quote-prefixed only, so the comments that explain the port don't trip it.
+    BANNED = [
+        ("INSERT OR IGNORE", "ON CONFLICT ... DO NOTHING"),
+        ("INSERT OR REPLACE", "ON CONFLICT ... DO UPDATE"),
+        ("datetime('now')", "to_char(now() AT TIME ZONE 'UTC', ...)"),
+        (".lastrowid", "INSERT ... RETURNING id"),
+    ]
+
+    def test_no_sqlite_only_sql_in_backend(self):
+        backend = Path(__file__).resolve().parent.parent
+        found: list[str] = []
+
+        for target in self.SOURCES:
+            path = backend / target
+            files = sorted(path.rglob("*.py")) if path.is_dir() else [path]
+            for f in files:
+                if "__pycache__" in str(f):
+                    continue
+                for n, line in enumerate(f.read_text(encoding="utf-8").splitlines(), 1):
+                    for bad, use in self.BANNED:
+                        # In a string literal, not prose about the port.
+                        if any(q + bad in line for q in ('"', "'")) or (
+                            bad == ".lastrowid" and bad in line and "#" not in line.split(bad)[0]
+                        ):
+                            found.append(f"{f.relative_to(backend)}:{n} {bad} -> use {use}")
+
+        self.assertEqual(found, [], "SQLite-only SQL left in the backend:\n" + "\n".join(found))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
