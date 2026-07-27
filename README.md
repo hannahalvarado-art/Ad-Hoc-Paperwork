@@ -19,10 +19,14 @@ cd backend
 python -m venv .venv && source .venv/bin/activate    # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 
-export DATABASE_URL=postgresql://localhost/adhoc     # any Postgres 12+
+cp ../.env.example ../.env      # then put your connection string in DATABASE_URL
 python seed.py --reset          # recreates the schema, loads config, runs the pipeline, verifies
 uvicorn app.main:app --reload   # http://127.0.0.1:8000  (docs at /docs)
 ```
+
+`.env` at the repo root (or in `backend/`) is loaded automatically and is
+gitignored. `export DATABASE_URL=...` works too and takes precedence — which is
+also why a `.env` can never shadow the value set in Vercel.
 
 `seed.py` reads `backend/data/june_adhoc_v5.json`, which is **not in the
 repository** — it carries worker names and Seso worker IDs. Get it from whoever

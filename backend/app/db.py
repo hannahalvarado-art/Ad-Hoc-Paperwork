@@ -31,6 +31,22 @@ import psycopg
 from psycopg.rows import dict_row
 
 SCHEMA_PATH = Path(__file__).resolve().parent / "schema.sql"
+BASE_DIR = Path(__file__).resolve().parent.parent      # backend/
+REPO_ROOT = BASE_DIR.parent
+
+# Local convenience only. Shipping a .env.example while nothing read a .env was
+# a trap: the file looked like configuration and did nothing. On Vercel the real
+# environment is already populated and no .env exists, so this is a no-op there
+# — and load_dotenv never overrides a variable that is already set, so a real
+# environment variable always wins over a stale file.
+try:
+    from dotenv import load_dotenv
+
+    for _candidate in (REPO_ROOT / ".env", BASE_DIR / ".env"):
+        if _candidate.exists():
+            load_dotenv(_candidate)
+except ImportError:  # not installed: fall back to the real environment
+    pass
 
 # Neon/Supabase/Vercel Postgres all expose this. Use the *pooled* connection
 # string in serverless: every invocation opens its own connection and the
