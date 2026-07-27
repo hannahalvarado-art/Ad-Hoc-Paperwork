@@ -8,13 +8,12 @@ appends to override_audit so a revoked price can still be explained later.
 from __future__ import annotations
 
 import json
-import sqlite3
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 
 from .. import reporting
-from ..db import get_conn, one, resolve_period, rows, tx
+from ..db import Conn, get_conn, one, resolve_period, rows, tx
 from ..models import OverrideCreate, OverrideImport
 
 router = APIRouter(prefix="/api", tags=["overrides"])
@@ -25,7 +24,7 @@ def _now() -> str:
 
 
 @router.get("/review-queue")
-def review_queue(period: str | None = None, conn: sqlite3.Connection = Depends(get_conn)):
+def review_queue(period: str | None = None, conn: Conn = Depends(get_conn)):
     try:
         p = resolve_period(conn, period)
     except KeyError as exc:
@@ -39,12 +38,12 @@ def review_queue(period: str | None = None, conn: sqlite3.Connection = Depends(g
 
 
 @router.get("/overrides")
-def list_overrides(conn: sqlite3.Connection = Depends(get_conn)):
+def list_overrides(conn: Conn = Depends(get_conn)):
     return rows(conn, "SELECT * FROM price_overrides ORDER BY billing_customer")
 
 
 @router.put("/overrides")
-def upsert_override(body: OverrideCreate, conn: sqlite3.Connection = Depends(get_conn)):
+def upsert_override(body: OverrideCreate, conn: Conn = Depends(get_conn)):
     acct = one(conn, "SELECT * FROM sf_accounts WHERE account_id = ?", (body.sf_account_id,))
     if not acct:
         raise HTTPException(
@@ -108,7 +107,7 @@ def upsert_override(body: OverrideCreate, conn: sqlite3.Connection = Depends(get
 def revoke_override(
     sf_account_id: str,
     actor: str = "",
-    conn: sqlite3.Connection = Depends(get_conn),
+    conn: Conn = Depends(get_conn),
 ):
     existing = one(
         conn, "SELECT * FROM price_overrides WHERE sf_account_id = ?", (sf_account_id,)
@@ -132,7 +131,7 @@ def revoke_override(
 
 
 @router.get("/overrides/export")
-def export_overrides(conn: sqlite3.Connection = Depends(get_conn)):
+def export_overrides(conn: Conn = Depends(get_conn)):
     """Same envelope the dashboard's Export button produced, so existing
     files round-trip through the importer below."""
     return {
@@ -144,7 +143,7 @@ def export_overrides(conn: sqlite3.Connection = Depends(get_conn)):
 
 
 @router.post("/overrides/import")
-def import_overrides(body: OverrideImport, conn: sqlite3.Connection = Depends(get_conn)):
+def import_overrides(body: OverrideImport, conn: Conn = Depends(get_conn)):
     imported, skipped = 0, []
     with tx(conn):
         for o in body.overrides:
@@ -193,7 +192,7 @@ def import_overrides(body: OverrideImport, conn: sqlite3.Connection = Depends(ge
 
 
 @router.get("/overrides/audit")
-def audit(limit: int = 200, conn: sqlite3.Connection = Depends(get_conn)):
+def audit(limit: int = 200, conn: Conn = Depends(get_conn)):
     return rows(
         conn,
         "SELECT id, sf_account_id, action, unit_price, actor, note, created_at "

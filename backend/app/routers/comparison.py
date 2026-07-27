@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 import json
-import sqlite3
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 
-from ..db import get_conn, one, resolve_period, rows, tx
+from ..db import Conn, get_conn, one, resolve_period, rows, tx
 from ..pipeline import hex_comparison
 from ..reporting import decorate
 
@@ -16,7 +15,7 @@ router = APIRouter(prefix="/api/comparison", tags=["comparison"])
 async def run_comparison(
     period: str | None = None,
     file: UploadFile = File(...),
-    conn: sqlite3.Connection = Depends(get_conn),
+    conn: Conn = Depends(get_conn),
 ):
     """Upload the Hex export and reconcile it against the current events."""
     try:
@@ -48,10 +47,11 @@ async def run_comparison(
 
     with tx(conn):
         cur = conn.execute(
-            "INSERT INTO comparison_runs (period_id, summary, per_customer) VALUES (?, ?, ?)",
+            "INSERT INTO comparison_runs (period_id, summary, per_customer) "
+            "VALUES (?, ?, ?) RETURNING id",
             (p["id"], json.dumps(result["summary"]), json.dumps(result["per_customer"])),
         )
-        run_id = cur.lastrowid
+        run_id = cur.fetchone()["id"]
         conn.executemany(
             "INSERT INTO comparison_records "
             "(run_id, category, sub, customer, worker, notes, claude_side, hex_side) "
@@ -75,7 +75,7 @@ async def run_comparison(
 
 
 @router.get("/latest")
-def latest(period: str | None = None, conn: sqlite3.Connection = Depends(get_conn)):
+def latest(period: str | None = None, conn: Conn = Depends(get_conn)):
     try:
         p = resolve_period(conn, period)
     except KeyError as exc:
@@ -112,7 +112,7 @@ def records(
     category: str = "",
     limit: int = Query(200, ge=1, le=2000),
     offset: int = Query(0, ge=0),
-    conn: sqlite3.Connection = Depends(get_conn),
+    conn: Conn = Depends(get_conn),
 ):
     if run_id is None:
         try:

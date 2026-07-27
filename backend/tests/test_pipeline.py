@@ -10,24 +10,42 @@ guard, and exclusion name matching.
 
 from __future__ import annotations
 
-import sqlite3
+import os
 import sys
 import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+import psycopg  # noqa: E402
+
 from app import pricing  # noqa: E402
-from app.db import SCHEMA_PATH  # noqa: E402
+from app.db import SCHEMA_PATH, Conn  # noqa: E402
 from app.pipeline import stage1_mapping, stage2_contracts, stage3_exclusions  # noqa: E402
 
 ACCOUNT_PRICED = "0018b0000224tcLAAQ"
 ACCOUNT_UNPRICED = "0018b0000224qbbAAA"
 
+# The stage tests used an in-memory SQLite database, which no longer matches
+# the Postgres schema. They now need a real scratch database — anything you are
+# willing to see dropped, since each test rebuilds the public schema:
+#
+#     TEST_DATABASE_URL=postgresql://localhost/adhoc_test python -m unittest discover -s tests
+#
+# Without it they skip rather than fail, so the pure-logic tests (pricing,
+# hex helpers) still run anywhere with no setup.
+TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL", "")
 
-def memory_db() -> sqlite3.Connection:
-    conn = sqlite3.connect(":memory:")
-    conn.row_factory = sqlite3.Row
+requires_db = unittest.skipUnless(
+    TEST_DATABASE_URL,
+    "Set TEST_DATABASE_URL to a scratch Postgres database to run the stage tests.",
+)
+
+
+def memory_db() -> Conn:
+    conn = Conn(psycopg.connect(TEST_DATABASE_URL, autocommit=True))
+    # Per-test isolation: the old :memory: database was fresh by construction.
+    conn.executescript("DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;")
     conn.executescript(SCHEMA_PATH.read_text())
     conn.executemany(
         "INSERT INTO sf_accounts (account_id, name, csm, adhoc_price) VALUES (?,?,?,?)",
@@ -103,6 +121,7 @@ class PricingHierarchy(unittest.TestCase):
         self.assertEqual(str(t), "0.30")
 
 
+@requires_db
 class Stage1Classification(unittest.TestCase):
     def setUp(self):
         self.conn = memory_db()
@@ -137,6 +156,7 @@ class Stage1Classification(unittest.TestCase):
         self.assertEqual(out[0]["flag"], "OK")
 
 
+@requires_db
 class EntitySplit(unittest.TestCase):
     def setUp(self):
         self.conn = memory_db()
@@ -159,7 +179,8 @@ class EntitySplit(unittest.TestCase):
 
     def _run(self, contract_name, sender="Someone Else"):
         self.conn.execute(
-            "INSERT OR REPLACE INTO contract_lookup (packet_id, contract_names) VALUES ('100',?)",
+            "INSERT INTO contract_lookup (packet_id, contract_names) VALUES ('100',?) "
+            "ON CONFLICT (packet_id) DO UPDATE SET contract_names=EXCLUDED.contract_names",
             (contract_name,),
         )
         events = stage1_mapping.run(
@@ -200,6 +221,7 @@ class EntitySplit(unittest.TestCase):
         self.assertFalse(r["customer_mapping_applied"])
 
 
+@requires_db
 class Exclusions(unittest.TestCase):
     def setUp(self):
         self.conn = memory_db()
@@ -269,6 +291,44 @@ class HexHelpers(unittest.TestCase):
         self.assertEqual(len(events), 1)
         self.assertEqual(fanout, 2, "Hex billed 3 rows for 1 packet")
         self.assertEqual(events[0]["raw_rows"], 3)
+
+
+class PlaceholderTranslation(unittest.TestCase):
+    """The Postgres port kept the codebase's sqlite3-style `?` and `:name`
+    placeholders and rewrites them in db.Conn. Everything downstream depends on
+    that rewrite being exact, and a mistake surfaces as a runtime SQL error on
+    one endpoint rather than anything a type checker would catch."""
+
+    def check(self, sql: str, want: str):
+        from app.db import _translate
+
+        self.assertEqual(_translate(sql), want)
+
+    def test_positional(self):
+        self.check("WHERE period_id = ?", "WHERE period_id = %s")
+
+    def test_named(self):
+        self.check("VALUES (:sf_account_id, :note)", "VALUES (%(sf_account_id)s, %(note)s)")
+
+    def test_question_mark_inside_string_literal_is_left_alone(self):
+        self.check("SELECT '?' AS q WHERE x = ?", "SELECT '?' AS q WHERE x = %s")
+
+    def test_escaped_quote_does_not_end_the_literal(self):
+        self.check("SELECT 'it''s ?' WHERE a = ?", "SELECT 'it''s ?' WHERE a = %s")
+
+    def test_percent_in_literal_is_doubled(self):
+        """psycopg scans the whole string for its own placeholders, so a `%`
+        inside SQL text is not protected by the surrounding quotes."""
+        self.check("WHERE c LIKE '%foo%'", "WHERE c LIKE '%%foo%%'")
+
+    def test_cast_is_not_a_named_parameter(self):
+        """`::text` must not be read as a parameter called `text`."""
+        self.check("SELECT a::text WHERE b = ? AND c = :n",
+                   "SELECT a::text WHERE b = %s AND c = %(n)s")
+
+    def test_comment_and_quoted_identifier(self):
+        self.check("SELECT 1 -- what? \nWHERE a = ?", "SELECT 1 -- what? \nWHERE a = %s")
+        self.check('SELECT "odd?col" WHERE a = ?', 'SELECT "odd?col" WHERE a = %s')
 
 
 if __name__ == "__main__":

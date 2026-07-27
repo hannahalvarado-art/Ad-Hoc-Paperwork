@@ -10,7 +10,7 @@ React + Python + SQLite.
 
 ## Running it
 
-Two terminals. Python 3.11+ and Node 18+.
+Two terminals. Python 3.11+, Node 18+, and a Postgres database.
 
 **Backend**
 
@@ -18,9 +18,20 @@ Two terminals. Python 3.11+ and Node 18+.
 cd backend
 python -m venv .venv && source .venv/bin/activate    # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-python seed.py --reset          # builds the DB, loads config, runs the pipeline, verifies
+
+export DATABASE_URL=postgresql://localhost/adhoc     # any Postgres 12+
+python seed.py --reset          # recreates the schema, loads config, runs the pipeline, verifies
 uvicorn app.main:app --reload   # http://127.0.0.1:8000  (docs at /docs)
 ```
+
+`seed.py` reads `backend/data/june_adhoc_v5.json`, which is **not in the
+repository** — it carries worker names and Seso worker IDs. Get it from whoever
+owns the billing extract and drop it in `backend/data/` before seeding. Without
+it the API starts fine but every endpoint returns an empty period.
+
+`--reset` drops and recreates the `public` schema. That takes the approved
+price overrides and the audit history with it, so don't point it at anything
+shared.
 
 **Frontend**
 
@@ -35,8 +46,47 @@ Vite proxies `/api` to port 8000, so nothing needs configuring for local dev.
 **Tests**
 
 ```bash
-cd backend && python -m unittest discover -s tests -v     # 23 tests, no extra deps
+cd backend && python -m unittest discover -s tests -v
 ```
+
+30 tests. The 15 covering pricing, the placeholder translation and the Hex
+helpers run with no setup. The 15 stage tests need a scratch database and skip
+without one:
+
+```bash
+TEST_DATABASE_URL=postgresql://localhost/adhoc_test python -m unittest discover -s tests -v
+```
+
+Each of those rebuilds the `public` schema, so give it its own database.
+
+---
+
+## Deploying
+
+Configured for [Vercel Services](https://vercel.com/docs/services) via
+`vercel.json`: the Vite frontend and the FastAPI backend build as two services
+in one project, sharing a domain. `/api/*` routes to the backend, everything
+else to the frontend — which is why the frontend calls same-origin `/api` with
+no base URL to configure and no CORS involved.
+
+In the Vercel project settings, **Framework Preset must be `Services`** and
+**Root Directory must be `./`**. Build/Output/Install stay empty at the top
+level; those settings live per-service in `vercel.json`.
+
+Set `DATABASE_URL` as an environment variable. Use the **pooled** connection
+string — each serverless invocation opens its own connection, and a direct
+endpoint will exhaust its limit under any real concurrency.
+
+The schema is applied on cold start (guarded by an advisory lock, so concurrent
+cold starts don't race). Once it's applied, set `ADHOC_SKIP_MIGRATE=1` to drop
+that round trip.
+
+`GET /api/health` reports whether the database is actually reachable, which is
+the first thing to check if the dashboard loads but comes up empty.
+
+⚠️ A Vercel deployment is public by default, and unlike the source code the
+dashboard renders real worker names and Seso IDs. Turn on Deployment Protection
+before sharing the URL.
 
 ---
 

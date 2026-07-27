@@ -45,11 +45,13 @@ def run_pipeline(conn, period_id: int, source: str = "pipeline") -> dict:
     }
 
     with tx(conn):
+        # RETURNING rather than cursor.lastrowid: psycopg has no lastrowid.
         cur = conn.execute(
-            "INSERT INTO pipeline_runs (period_id, source, status) VALUES (?, ?, 'running')",
+            "INSERT INTO pipeline_runs (period_id, source, status) "
+            "VALUES (?, ?, 'running') RETURNING id",
             (period_id, source),
         )
-        run_id = cur.lastrowid
+        run_id = cur.fetchone()["id"]
 
         conn.execute("DELETE FROM events WHERE period_id = ?", (period_id,))
         placeholders = ", ".join("?" for _ in EVENT_COLUMNS)
@@ -66,7 +68,9 @@ def run_pipeline(conn, period_id: int, source: str = "pipeline") -> dict:
             ],
         )
         conn.execute(
-            "UPDATE pipeline_runs SET status='ok', finished_at=datetime('now'), stats=? WHERE id=?",
+            "UPDATE pipeline_runs SET status='ok', "
+            "finished_at=to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS'), "
+            "stats=? WHERE id=?",
             (json.dumps(stats), run_id),
         )
 
@@ -103,12 +107,20 @@ def ingest_raw(conn, period_id: int, records: list[dict], replace: bool = True) 
             int(r.get("has_active") or 0),
         )
 
+    # Was INSERT OR REPLACE. The Postgres equivalent has to name the conflict
+    # target explicitly — the UNIQUE on raw_events — and list the columns to
+    # overwrite, which is every column that is not part of that key.
+    updatable = [c for c in cols if c not in
+                 ("period_id", "packet_id", "seso_worker_id", "paperwork_name")]
+
     with tx(conn):
         if replace:
             conn.execute("DELETE FROM raw_events WHERE period_id = ?", (period_id,))
         conn.executemany(
-            f"INSERT OR REPLACE INTO raw_events ({', '.join(cols)}) "
-            f"VALUES ({', '.join('?' for _ in cols)})",
+            f"INSERT INTO raw_events ({', '.join(cols)}) "
+            f"VALUES ({', '.join('?' for _ in cols)}) "
+            f"ON CONFLICT (period_id, packet_id, seso_worker_id, paperwork_name) "
+            f"DO UPDATE SET {', '.join(f'{c}=EXCLUDED.{c}' for c in updatable)}",
             [coerce(r) for r in records],
         )
     return len(records)
@@ -118,7 +130,8 @@ def ingest_contract_lookup(conn, pairs: list[tuple[str, str]]) -> int:
     """Load contract_lookup.csv rows: packet_id -> contract_names."""
     with tx(conn):
         conn.executemany(
-            "INSERT OR REPLACE INTO contract_lookup (packet_id, contract_names) VALUES (?, ?)",
+            "INSERT INTO contract_lookup (packet_id, contract_names) VALUES (?, ?) "
+            "ON CONFLICT (packet_id) DO UPDATE SET contract_names=EXCLUDED.contract_names",
             pairs,
         )
     return len(pairs)

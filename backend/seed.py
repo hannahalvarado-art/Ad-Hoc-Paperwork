@@ -35,7 +35,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from app.db import DB_PATH, connect, init_db, tx  # noqa: E402
+from app.db import DATABASE_URL, connect, init_db, tx  # noqa: E402
 from app.pipeline import runner  # noqa: E402
 
 DATA_FILE = Path(__file__).resolve().parent / "data" / "june_adhoc_v5.json"
@@ -289,10 +289,21 @@ def main() -> int:
     ap.add_argument("--no-verify", action="store_true")
     args = ap.parse_args()
 
-    if args.reset and DB_PATH.exists():
-        for p in (DB_PATH, Path(f"{DB_PATH}-wal"), Path(f"{DB_PATH}-shm")):
-            p.unlink(missing_ok=True)
-        print(f"Removed {DB_PATH}")
+    if not DATABASE_URL:
+        print(
+            "DATABASE_URL is not set. Point it at a Postgres instance, e.g.\n"
+            "  export DATABASE_URL=postgresql://localhost/adhoc",
+            file=sys.stderr,
+        )
+        return 2
+
+    # --reset used to unlink the SQLite file. There is no file now, so it drops
+    # and recreates the schema instead. Destructive: it takes the overrides and
+    # audit history with it.
+    if args.reset:
+        with connect() as c:
+            c.executescript("DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;")
+        print("Dropped and recreated the public schema")
 
     init_db()
     data = load_dataset()
@@ -315,7 +326,9 @@ def main() -> int:
         if not args.no_verify and not verify(conn, period_id, data):
             return 1
 
-        print(f"\nDatabase ready at {DB_PATH}")
+        # Host only — the connection string carries credentials.
+        host = DATABASE_URL.rsplit("@", 1)[-1].split("?", 1)[0]
+        print(f"\nDatabase ready at {host}")
         print("Start the API with:  uvicorn app.main:app --reload")
         return 0
     finally:

@@ -247,7 +247,10 @@ def event_list(
             "source_customer", "billing_customer", "worker_name",
             "paperwork_name", "contract_name", "salesforce_account",
         ]
-        where.append("(" + " OR ".join(f"COALESCE({c},'') LIKE ?" for c in cols) + ")")
+        # ILIKE, not LIKE: SQLite's LIKE is case-insensitive for ASCII but
+        # Postgres' is not, so a literal port would have silently made the
+        # dashboard's search box case-sensitive.
+        where.append("(" + " OR ".join(f"COALESCE({c},'') ILIKE ?" for c in cols) + ")")
         params.extend([f"%{search}%"] * len(cols))
 
     order = SORTABLE.get(sort, "source_customer")

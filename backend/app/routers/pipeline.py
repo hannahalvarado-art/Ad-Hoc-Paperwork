@@ -3,11 +3,10 @@ from __future__ import annotations
 import csv
 import io
 import json
-import sqlite3
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 
-from ..db import get_conn, one, resolve_period, tx
+from ..db import Conn, get_conn, one, resolve_period, tx
 from ..models import ContractLookupIngest, PeriodCreate, RawIngest
 from ..pipeline import runner
 
@@ -15,17 +14,18 @@ router = APIRouter(prefix="/api", tags=["pipeline"])
 
 
 @router.post("/periods")
-def create_period(body: PeriodCreate, conn: sqlite3.Connection = Depends(get_conn)):
+def create_period(body: PeriodCreate, conn: Conn = Depends(get_conn)):
     with tx(conn):
         conn.execute(
-            "INSERT OR IGNORE INTO periods (label, name, basis) VALUES (?, ?, ?)",
+            "INSERT INTO periods (label, name, basis) VALUES (?, ?, ?) "
+            "ON CONFLICT (label) DO NOTHING",
             (body.label, body.name, body.basis),
         )
     return one(conn, "SELECT * FROM periods WHERE label = ?", (body.label,))
 
 
 @router.post("/ingest/raw")
-def ingest_raw(body: RawIngest, conn: sqlite3.Connection = Depends(get_conn)):
+def ingest_raw(body: RawIngest, conn: Conn = Depends(get_conn)):
     """Load june_adhoc_v2.json-shaped records for a period."""
     try:
         p = resolve_period(conn, body.period)
@@ -39,7 +39,7 @@ def ingest_raw(body: RawIngest, conn: sqlite3.Connection = Depends(get_conn)):
 async def ingest_raw_file(
     period: str,
     file: UploadFile = File(...),
-    conn: sqlite3.Connection = Depends(get_conn),
+    conn: Conn = Depends(get_conn),
 ):
     try:
         p = resolve_period(conn, period)
@@ -59,7 +59,7 @@ async def ingest_raw_file(
 async def ingest_contract_lookup(
     body: ContractLookupIngest | None = None,
     file: UploadFile | None = File(None),
-    conn: sqlite3.Connection = Depends(get_conn),
+    conn: Conn = Depends(get_conn),
 ):
     """contract_lookup.csv: packet_id, contract_names."""
     pairs: list[tuple[str, str]] = []
@@ -86,7 +86,7 @@ async def ingest_contract_lookup(
 
 
 @router.post("/pipeline/run")
-def run(period: str | None = None, conn: sqlite3.Connection = Depends(get_conn)):
+def run(period: str | None = None, conn: Conn = Depends(get_conn)):
     """Stage 1 -> 2 -> 3, atomically, replacing the period's events."""
     try:
         p = resolve_period(conn, period)
