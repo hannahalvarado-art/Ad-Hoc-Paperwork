@@ -114,7 +114,12 @@ export default function App() {
         <EventTable period={period} refreshKey={refreshKey} />
       </section>
 
-      <MethodNotes config={config.data} />
+      {/* config.error is deliberately not part of `fatal`: the rules panel is
+          not needed to read the numbers, so a failed /api/config degrades that
+          one section instead of replacing the whole dashboard with a banner. It
+          does have to be reported *somewhere*, though — it used to be dropped
+          entirely and the panel just claimed nothing was configured. */}
+      <MethodNotes config={config.data} loading={config.loading} error={config.error} />
 
       <div className="foot-note">
         <span>
