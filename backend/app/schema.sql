@@ -1,0 +1,217 @@
+-- Ad Hoc Paperwork billing reconciliation
+-- Every dict that was hardcoded in the Node scripts is a table here.
+
+PRAGMA journal_mode = WAL;
+PRAGMA foreign_keys = ON;
+
+-- ---------------------------------------------------------------- periods
+-- Each pipeline run targets a billing period. The old scripts were
+-- implicitly June-2026-only (file names v2..v5); this makes it explicit.
+CREATE TABLE IF NOT EXISTS periods (
+  id          INTEGER PRIMARY KEY,
+  label       TEXT    NOT NULL UNIQUE,   -- '2026-06'
+  name        TEXT    NOT NULL,          -- 'June 2026'
+  basis       TEXT    NOT NULL DEFAULT 'sent_date',
+  closed      INTEGER NOT NULL DEFAULT 0,
+  created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+-- ---------------------------------------------------------- config: accounts
+-- Was: the ACCT dict in 01_customer_mapping_and_pricing.js
+-- adhoc_price was: the TARGET_PRICE dict. NULL means "no Ad Hoc product on
+-- any Closed-Won opportunity" -> routes to CSM price review.
+CREATE TABLE IF NOT EXISTS sf_accounts (
+  account_id   TEXT PRIMARY KEY,         -- '0018b0000224tcLAAQ'
+  name         TEXT NOT NULL,
+  csm          TEXT,
+  adhoc_price  REAL,                     -- NULL = not configured in Salesforce
+  updated_at   TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- ----------------------------------------------------- config: customer map
+-- Was: the CUSTOMER_MAP dict. Maps a source enterprise name to the account
+-- that actually gets billed (Hartnell -> Bengard, LLC/Inc. name mismatches).
+CREATE TABLE IF NOT EXISTS customer_map (
+  id                INTEGER PRIMARY KEY,
+  source_customer   TEXT NOT NULL UNIQUE,
+  billing_customer  TEXT NOT NULL,
+  sf_account_id     TEXT NOT NULL REFERENCES sf_accounts(account_id),
+  reason            TEXT NOT NULL,
+  active            INTEGER NOT NULL DEFAULT 1,
+  created_at        TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- ------------------------------------------------------ config: exclusions
+-- Was: the EXCLUDED_CUSTOMERS dict in 03_customer_exclusion.js
+-- Excluded events are retained for audit, never billed.
+CREATE TABLE IF NOT EXISTS excluded_customers (
+  id               INTEGER PRIMARY KEY,
+  source_customer  TEXT NOT NULL UNIQUE,
+  reason           TEXT NOT NULL,
+  active           INTEGER NOT NULL DEFAULT 1,
+  created_at       TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- --------------------------------------------- config: entity split rules
+-- Was: the hardcoded OVERLOOK_* constants in 02_*.js. Generalised so the
+-- next customer that bills across two legal entities is a row, not a patch.
+CREATE TABLE IF NOT EXISTS entity_split_rules (
+  id               INTEGER PRIMARY KEY,
+  source_customer  TEXT NOT NULL UNIQUE,
+  token_a          TEXT NOT NULL,   -- 'OHC' -> entity_a
+  entity_a         TEXT NOT NULL,
+  token_b          TEXT NOT NULL,   -- 'OHM' -> entity_b
+  entity_b         TEXT NOT NULL,
+  default_entity   TEXT NOT NULL,   -- when contract name has neither token
+  review_label     TEXT NOT NULL,   -- billing_customer when unresolvable
+  active           INTEGER NOT NULL DEFAULT 1
+);
+
+-- Senders that resolve a contract spanning BOTH tokens to one entity.
+CREATE TABLE IF NOT EXISTS entity_split_senders (
+  id           INTEGER PRIMARY KEY,
+  rule_id      INTEGER NOT NULL REFERENCES entity_split_rules(id) ON DELETE CASCADE,
+  sender_name  TEXT NOT NULL,
+  resolves_to  TEXT NOT NULL DEFAULT 'entity_b',
+  UNIQUE (rule_id, sender_name)
+);
+
+-- ------------------------------------------------------- config: settings
+-- Was: the magic number 16 in classify() and other inline literals.
+CREATE TABLE IF NOT EXISTS settings (
+  key    TEXT PRIMARY KEY,
+  value  TEXT NOT NULL,
+  note   TEXT
+);
+
+-- ------------------------------------------------------- contract lookup
+-- Was: contract_lookup.csv parsed by the hand-rolled parseCSV().
+CREATE TABLE IF NOT EXISTS contract_lookup (
+  packet_id       TEXT PRIMARY KEY,
+  contract_names  TEXT NOT NULL
+);
+
+-- ------------------------------------------------------------- raw events
+-- Was: june_adhoc_v2.json. The pipeline's input; never mutated by a run.
+CREATE TABLE IF NOT EXISTS raw_events (
+  id               INTEGER PRIMARY KEY,
+  period_id        INTEGER NOT NULL REFERENCES periods(id) ON DELETE CASCADE,
+  enterprise_name  TEXT NOT NULL,
+  account_id       TEXT,
+  csm              TEXT,
+  sf_price         REAL,
+  worker_name      TEXT,
+  seso_worker_id   TEXT,
+  paperwork_name   TEXT,
+  packet_id        TEXT,
+  num_src          INTEGER NOT NULL DEFAULT 1,
+  sent_date        TEXT,
+  signed_date      TEXT,
+  sender_name      TEXT,
+  contract_ids     TEXT,
+  has_active       INTEGER NOT NULL DEFAULT 1,
+  UNIQUE (period_id, packet_id, seso_worker_id, paperwork_name)
+);
+
+-- --------------------------------------------------------- pipeline output
+-- Was: june_adhoc_v5.json (and the DATA blob inlined in the dashboard).
+-- expected_charge is deliberately NOT stored: it is derived at read time
+-- from sf_price + flag + the current override layer, so the KPIs, the
+-- summary and the detail table can never disagree with each other.
+CREATE TABLE IF NOT EXISTS events (
+  id                        INTEGER PRIMARY KEY,
+  period_id                 INTEGER NOT NULL REFERENCES periods(id) ON DELETE CASCADE,
+  run_id                    INTEGER REFERENCES pipeline_runs(id),
+  raw_event_id              INTEGER REFERENCES raw_events(id),
+  source_customer           TEXT NOT NULL,
+  billing_customer          TEXT NOT NULL,
+  salesforce_account        TEXT,
+  salesforce_account_id     TEXT,
+  customer_mapping_applied  INTEGER NOT NULL DEFAULT 0,
+  mapping_reason            TEXT,
+  csm                       TEXT,
+  worker_name               TEXT,
+  seso_worker_id            TEXT,
+  paperwork_name            TEXT,
+  packet_id                 TEXT,
+  num_src                   INTEGER NOT NULL DEFAULT 1,
+  sent_date                 TEXT,
+  signed_date               TEXT,
+  sender_name               TEXT,
+  contract_ids              TEXT,
+  contract_name             TEXT,
+  sf_price                  REAL,
+  flag                      TEXT NOT NULL,
+  has_active                INTEGER NOT NULL DEFAULT 1,
+  excluded                  INTEGER NOT NULL DEFAULT 0,
+  exclusion_reason          TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_events_period   ON events(period_id);
+CREATE INDEX IF NOT EXISTS idx_events_flag     ON events(period_id, flag);
+CREATE INDEX IF NOT EXISTS idx_events_billing  ON events(period_id, billing_customer);
+CREATE INDEX IF NOT EXISTS idx_events_acct     ON events(salesforce_account_id);
+
+-- ------------------------------------------------------- approved overrides
+-- Was: localStorage['adhoc_csm_overrides_v1'] — one browser, one person,
+-- lost on cache clear. Now server-side, shared, and auditable.
+-- Salesforce is still never written to.
+CREATE TABLE IF NOT EXISTS price_overrides (
+  sf_account_id        TEXT PRIMARY KEY REFERENCES sf_accounts(account_id),
+  sf_account_name      TEXT,
+  billing_customer     TEXT,
+  confirmed_unit_price REAL NOT NULL CHECK (confirmed_unit_price >= 0),
+  confirmed_by         TEXT NOT NULL,
+  confirmed_at         TEXT NOT NULL,
+  confirmation_source  TEXT NOT NULL DEFAULT 'CSM',
+  effective_date       TEXT NOT NULL,
+  note                 TEXT
+);
+
+-- Append-only. A revoke does not erase the history of what was billed.
+CREATE TABLE IF NOT EXISTS override_audit (
+  id             INTEGER PRIMARY KEY,
+  sf_account_id  TEXT NOT NULL,
+  action         TEXT NOT NULL,          -- confirmed | revoked | imported
+  unit_price     REAL,
+  actor          TEXT,
+  note           TEXT,
+  payload        TEXT,                   -- full JSON snapshot
+  created_at     TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- ---------------------------------------------------------- pipeline runs
+CREATE TABLE IF NOT EXISTS pipeline_runs (
+  id           INTEGER PRIMARY KEY,
+  period_id    INTEGER NOT NULL REFERENCES periods(id) ON DELETE CASCADE,
+  started_at   TEXT NOT NULL DEFAULT (datetime('now')),
+  finished_at  TEXT,
+  status       TEXT NOT NULL DEFAULT 'running',
+  source       TEXT,                     -- 'pipeline' | 'seed:v5'
+  stats        TEXT,                     -- JSON: the old console.log validations
+  error        TEXT
+);
+
+-- ------------------------------------------------- Hex comparison results
+-- Was: comparison2.json from hex_comparison_analysis.js
+CREATE TABLE IF NOT EXISTS comparison_runs (
+  id          INTEGER PRIMARY KEY,
+  period_id   INTEGER NOT NULL REFERENCES periods(id) ON DELETE CASCADE,
+  created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+  summary     TEXT NOT NULL,             -- JSON
+  per_customer TEXT NOT NULL             -- JSON
+);
+
+CREATE TABLE IF NOT EXISTS comparison_records (
+  id          INTEGER PRIMARY KEY,
+  run_id      INTEGER NOT NULL REFERENCES comparison_runs(id) ON DELETE CASCADE,
+  category    TEXT NOT NULL,
+  sub         TEXT,
+  customer    TEXT,
+  worker      TEXT,
+  notes       TEXT,
+  claude_side TEXT,                      -- JSON or NULL
+  hex_side    TEXT                       -- JSON or NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_cmp_records ON comparison_records(run_id, category);
