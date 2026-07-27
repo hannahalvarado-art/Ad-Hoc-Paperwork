@@ -1,8 +1,8 @@
-import { usd, Pill } from "./Pill.jsx";
+import { usd, Pill, Notice, Loading } from "./Pill.jsx";
 
 /** The rules panel, driven by the live config tables rather than by prose
  *  hardcoded in the markup — so it cannot drift from what the pipeline does. */
-export default function MethodNotes({ config }) {
+export default function MethodNotes({ config, loading, error }) {
   const mappings = config?.customer_map ?? [];
   const exclusions = config?.exclusions ?? [];
   const splits = config?.entity_split_rules ?? [];
@@ -64,8 +64,23 @@ export default function MethodNotes({ config }) {
                 <b>{e.source_customer}</b> — <code>CUSTOMER_EXCLUDED</code>, retained for audit
               </Rule>
             ))}
-            {!mappings.length && !splits.length && !exclusions.length && (
-              <p className="muted">No mapping, split or exclusion rules configured.</p>
+            {/* "Nothing configured" is a claim about the rule tables, so it is
+                only made once they have actually been read. A failed or
+                in-flight /api/config used to render the same sentence, which
+                made a broken request indistinguishable from an empty ruleset. */}
+            {error ? (
+              <Notice kind="error">
+                {error} — rules could not be loaded, so this list is not the live
+                configuration.
+              </Notice>
+            ) : loading ? (
+              <Loading rows={2} />
+            ) : (
+              !mappings.length &&
+              !splits.length &&
+              !exclusions.length && (
+                <p className="muted">No mapping, split or exclusion rules configured.</p>
+              )
             )}
           </div>
         </details>
@@ -90,6 +105,8 @@ export default function MethodNotes({ config }) {
         <details>
           <summary>Salesforce accounts and prices</summary>
           <div className="body">
+            {error && <Notice kind="error">{error}</Notice>}
+            {loading && <Loading rows={3} />}
             <table style={{ fontSize: 12.5 }}>
               <thead>
                 <tr>
