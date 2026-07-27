@@ -49,9 +49,16 @@ export default function App() {
         </div>
       </div>
 
+      {/* The server's own message where there is one — a 503 from an
+          unconfigured or unreachable database explains itself, and the old
+          hardcoded "port 8000 / run seed.py" advice was misleading anywhere
+          other than a local dev machine. */}
       {fatal && (
         <Notice kind="error">
-          {fatal} — check the API is running on port 8000 and that <code>seed.py</code> has been run.
+          {fatal}
+          {/^\d+\s/.test(fatal) && (
+            <> — the API responded but could not serve this request.</>
+          )}
         </Notice>
       )}
 

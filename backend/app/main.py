@@ -6,7 +6,9 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .db import DATABASE_URL, connect, init_db
+from fastapi.responses import JSONResponse
+
+from .db import DATABASE_URL, DatabaseUnavailable, connect, init_db
 from .routers import comparison, config, dashboard, overrides, pipeline
 
 ORIGINS = os.environ.get(
@@ -45,6 +47,19 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.exception_handler(DatabaseUnavailable)
+def _db_unavailable(request, exc: DatabaseUnavailable):
+    """503 with the reason, not 500 with nothing.
+
+    `detail` is the key the frontend's api.js already reads off an error body,
+    so this text reaches the dashboard banner unchanged.
+    """
+    return JSONResponse(
+        status_code=503,
+        content={"detail": f"Database unavailable. {exc}"},
+    )
+
 
 for r in (dashboard.router, overrides.router, config.router, pipeline.router, comparison.router):
     app.include_router(r)

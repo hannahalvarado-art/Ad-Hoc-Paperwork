@@ -41,9 +41,19 @@ DATABASE_URL = os.environ.get("DATABASE_URL", "")
 _MIGRATION_LOCK = 8_412_776_301
 
 
+class DatabaseUnavailable(RuntimeError):
+    """No database configured, or the server is unreachable.
+
+    Distinct from a genuine query bug so main.py can answer 503 with the reason
+    instead of a bare 500. An unconfigured deployment is the single most likely
+    thing to be wrong on a fresh deploy, and "Internal Server Error" on every
+    endpoint gives whoever is looking at the dashboard nothing to act on.
+    """
+
+
 def _dsn() -> str:
     if not DATABASE_URL:
-        raise RuntimeError(
+        raise DatabaseUnavailable(
             "DATABASE_URL is not set. Point it at a Postgres instance "
             "(Neon, Vercel Postgres, Supabase, or a local server)."
         )
@@ -146,7 +156,14 @@ class Conn:
 def connect() -> Conn:
     # autocommit mirrors sqlite3's isolation_level=None: statements land
     # immediately unless tx() has opened an explicit block.
-    return Conn(psycopg.connect(_dsn(), autocommit=True))
+    dsn = _dsn()
+    try:
+        return Conn(psycopg.connect(dsn, autocommit=True))
+    except psycopg.OperationalError as exc:
+        # Wrong host, bad credentials, pool exhausted, server asleep. All are
+        # deployment problems rather than bugs, so they get the same treatment
+        # as a missing DATABASE_URL.
+        raise DatabaseUnavailable(f"Cannot reach the database: {exc}") from exc
 
 
 def init_db() -> None:
