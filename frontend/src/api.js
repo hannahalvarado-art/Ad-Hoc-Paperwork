@@ -12,6 +12,10 @@ class ApiError extends Error {
 async function request(path, options = {}) {
   const res = await fetch(`${BASE}${path}`, {
     headers: options.body instanceof FormData ? {} : { "Content-Type": "application/json" },
+    // The session is an HttpOnly cookie the backend sets, so it has to be sent
+    // with every request. Same-origin in production; explicit here so local dev
+    // against a proxied API behaves identically.
+    credentials: "same-origin",
     ...options,
   });
 
@@ -57,6 +61,43 @@ export const api = {
   config: () => request("/config"),
   runPipeline: (period) => request(`/pipeline/run${qs({ period })}`, { method: "POST" }),
   comparison: (period) => request(`/comparison/latest${qs({ period })}`),
+
+  // --- identity -----------------------------------------------------------
+  me: () => request("/auth/me"),
+  logout: () => request("/auth/logout", { method: "POST" }),
+
+  // --- billing periods ----------------------------------------------------
+  billingPeriods: () => request("/billing-periods"),
+  billingPeriod: (label) => request(`/billing-periods/${encodeURIComponent(label)}`),
+  runPeriod: (body) => request("/billing-periods/run", { method: "POST", body: JSON.stringify(body) }),
+  refreshUsage: (label, source) =>
+    request(`/billing-periods/${encodeURIComponent(label)}/refresh-usage${qs({ source })}`, {
+      method: "POST",
+    }),
+  refreshPricing: (label) =>
+    request(`/billing-periods/${encodeURIComponent(label)}/refresh-pricing`, { method: "POST" }),
+  markReady: (label) =>
+    request(`/billing-periods/${encodeURIComponent(label)}/ready-to-bill`, { method: "POST" }),
+  closePeriod: (label, body) =>
+    request(`/billing-periods/${encodeURIComponent(label)}/close`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  reopenPeriod: (label, reason) =>
+    request(`/billing-periods/${encodeURIComponent(label)}/reopen`, {
+      method: "POST",
+      body: JSON.stringify({ reason }),
+    }),
+  notify: (label) =>
+    request(`/billing-periods/${encodeURIComponent(label)}/notify`, { method: "POST" }),
+  notificationPreview: (label) =>
+    request(`/billing-periods/${encodeURIComponent(label)}/notification-preview`),
+
+  // --- review / approvals -------------------------------------------------
+  customerSummary: (params) => request(`/customer-summary${qs(params)}`),
+  accounting: (period) => request(`/accounting${qs({ period })}`),
+  setApproval: (body) => request("/approvals", { method: "PUT", body: JSON.stringify(body) }),
+  audit: (params) => request(`/audit${qs(params)}`),
 };
 
 /** Fetch on mount, expose a refetch. `deps` controls re-fetching. */

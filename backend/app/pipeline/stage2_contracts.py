@@ -51,7 +51,12 @@ def run(conn, events: list[dict]) -> tuple[list[dict], dict]:
     out: list[dict] = []
     for r in events:
         e = dict(r)
-        e["contract_name"] = names.get(r.get("packet_id") or "", "")
+        # contract_lookup wins where it has an entry, as it always did. The
+        # fallback is for rows that arrive from the warehouse already carrying a
+        # contract name: an unconditional overwrite would blank those, and a
+        # blank contract name silently disables the entity split that depends
+        # on it.
+        e["contract_name"] = names.get(r.get("packet_id") or "") or r.get("contract_name") or ""
 
         rule = rules.get(r["source_customer"])
         if rule:

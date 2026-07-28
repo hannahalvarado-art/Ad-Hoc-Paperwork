@@ -31,6 +31,10 @@ import psycopg
 from psycopg.rows import dict_row
 
 SCHEMA_PATH = Path(__file__).resolve().parent / "schema.sql"
+# Applied straight after SCHEMA_PATH, in the same advisory-locked block. Split
+# only for readability: schema.sql is the validated reconciliation schema,
+# schema_monthly.sql is what recurring monthly operation added on top.
+MONTHLY_SCHEMA_PATH = Path(__file__).resolve().parent / "schema_monthly.sql"
 BASE_DIR = Path(__file__).resolve().parent.parent      # backend/
 REPO_ROOT = BASE_DIR.parent
 
@@ -196,7 +200,9 @@ def init_db() -> None:
         # and carried on, and the schema was silently never created.
         conn.execute("SELECT pg_advisory_lock(?)", (_MIGRATION_LOCK,))
         try:
+            # Order matters: schema_monthly.sql alters tables schema.sql creates.
             conn.executescript(SCHEMA_PATH.read_text())
+            conn.executescript(MONTHLY_SCHEMA_PATH.read_text())
         finally:
             conn.execute("SELECT pg_advisory_unlock(?)", (_MIGRATION_LOCK,))
 
@@ -239,14 +245,40 @@ def setting(conn: Conn, key: str, default: str = "") -> str:
     return v if v is not None else default
 
 
-def resolve_period(conn: Conn, label: str | None) -> dict:
-    """Named period, or the most recent one."""
+# Repeated here rather than imported from app.periods, which imports this
+# module. Ad Hoc Paperwork is the only billing type in use; the parameter exists
+# so a second one does not require touching every call site.
+DEFAULT_BILLING_TYPE = "ADHOC_PAPERWORK"
+
+
+def resolve_period(
+    conn: Conn, label: str | None, billing_type: str = DEFAULT_BILLING_TYPE
+) -> dict:
+    """Named period, or the one a user most likely wants to be looking at.
+
+    That is the latest period still being worked on, not simply the latest.
+    Once August opens, July closing should not drag the default forward onto a
+    read-only month while June is still IN_REVIEW — so an unclosed period always
+    outranks a closed one, and only then is it newest-first.
+
+    Scoped by billing type because a label is only unique within one: Ad Hoc's
+    '2026-07' and a future Worker Onboarding '2026-07' are different periods.
+    """
     if label:
-        p = one(conn, "SELECT * FROM periods WHERE label = ?", (label,))
+        p = one(
+            conn,
+            "SELECT * FROM periods WHERE label = ? AND billing_type = ?",
+            (label, billing_type),
+        )
         if not p:
             raise KeyError(f"No such period: {label}")
         return p
-    p = one(conn, "SELECT * FROM periods ORDER BY label DESC LIMIT 1")
+    p = one(
+        conn,
+        "SELECT * FROM periods WHERE billing_type = ? "
+        "ORDER BY (status = 'CLOSED') ASC, label DESC LIMIT 1",
+        (billing_type,),
+    )
     if not p:
         raise KeyError("No periods loaded. Run seed.py first.")
     return p

@@ -4,7 +4,7 @@ import { fmt, usd, Pill, Notice, Loading } from "./Pill.jsx";
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
 
-export default function ReviewQueue({ queue, loading, error, onChange }) {
+export default function ReviewQueue({ queue, loading, error, onChange, canAct, readOnly, auth }) {
   const [notice, setNotice] = useState(null);
   const [busy, setBusy] = useState(false);
   const fileRef = useRef(null);
@@ -58,7 +58,7 @@ export default function ReviewQueue({ queue, loading, error, onChange }) {
       <div className="rev-tools">
         <button
           className="btn"
-          disabled={busy}
+          disabled={busy || !canAct}
           onClick={() => fileRef.current?.click()}
         >
           Import approved overrides
@@ -93,6 +93,9 @@ export default function ReviewQueue({ queue, loading, error, onChange }) {
               account={a}
               onChange={onChange}
               onNotice={setNotice}
+              canAct={canAct}
+              readOnly={readOnly}
+              auth={auth}
             />
           ))}
         </div>
@@ -105,15 +108,18 @@ export default function ReviewQueue({ queue, loading, error, onChange }) {
   );
 }
 
-function ReviewCard({ account: a, onChange, onNotice }) {
+function ReviewCard({ account: a, onChange, onNotice, canAct, readOnly, auth }) {
   const [mode, setMode] = useState(null); // 'zero' | 'price'
   const [price, setPrice] = useState("");
-  const [by, setBy] = useState(a.csm !== "—" ? a.csm : "");
   const [effective, setEffective] = useState(todayISO());
   const [note, setNote] = useState("");
   const [err, setErr] = useState("");
   const [pending, setPending] = useState(null); // the value awaiting final confirmation
   const [saving, setSaving] = useState(false);
+
+  // Who is confirming is no longer a text box. It used to be, which meant the
+  // audit trail recorded what somebody typed rather than who they were.
+  const actor = auth?.user?.email ?? "";
 
   const review = () => {
     if (!mode) return setErr("Choose $0 or enter a price.");
@@ -122,7 +128,6 @@ function ReviewCard({ account: a, onChange, onNotice }) {
       value = Number.parseFloat(price);
       if (!Number.isFinite(value) || value < 0) return setErr("Enter a valid price (0 or more).");
     }
-    if (!by.trim()) return setErr("Enter who is confirming.");
     setErr("");
     setPending(value);
   };
@@ -133,8 +138,8 @@ function ReviewCard({ account: a, onChange, onNotice }) {
       await api.saveOverride({
         sf_account_id: a.sf_account_id,
         confirmed_unit_price: pending,
-        confirmed_by: by.trim(),
         effective_date: effective || todayISO(),
+        confirm: true,
         note: note.trim(),
         billing_customer: a.billing_customer,
         sf_account_name: a.sf_account_name,
@@ -156,7 +161,7 @@ function ReviewCard({ account: a, onChange, onNotice }) {
   const revoke = async () => {
     setSaving(true);
     try {
-      await api.revokeOverride(a.sf_account_id, by.trim());
+      await api.revokeOverride(a.sf_account_id);
       onNotice({
         kind: "",
         text: `${a.billing_customer} returned to CSM price review. The revoked price stays in the audit trail.`,
@@ -234,7 +239,11 @@ function ReviewCard({ account: a, onChange, onNotice }) {
             {o.note ? ` · “${o.note}”` : ""}
           </div>
           <div className="rc-actions">
-            <button className="btn sm ghost" disabled={saving} onClick={revoke}>
+            <button
+              className="btn sm ghost"
+              disabled={saving || !canAct || readOnly}
+              onClick={revoke}
+            >
               Revoke and re-confirm
             </button>
           </div>
@@ -281,12 +290,9 @@ function ReviewCard({ account: a, onChange, onNotice }) {
           <div className="row2">
             <div className="fld">
               <span className="k">Confirmed by</span>
-              <input
-                type="text"
-                placeholder="Your name"
-                value={by}
-                onChange={(e) => setBy(e.target.value)}
-              />
+              <div className="fld-static" title="Taken from your session, not typed">
+                {actor || <span className="faint">sign in to confirm</span>}
+              </div>
             </div>
             <div className="fld">
               <span className="k">Effective date</span>
@@ -311,7 +317,18 @@ function ReviewCard({ account: a, onChange, onNotice }) {
           {err && <div className="err">{err}</div>}
 
           <div className="rc-actions">
-            <button className="btn primary sm" onClick={review} disabled={saving}>
+            <button
+              className="btn primary sm"
+              onClick={review}
+              disabled={saving || !canAct || readOnly}
+              title={
+                readOnly
+                  ? "This period is closed"
+                  : canAct
+                    ? ""
+                    : "Sign in to confirm a price"
+              }
+            >
               Review and confirm…
             </button>
           </div>
@@ -321,8 +338,9 @@ function ReviewCard({ account: a, onChange, onNotice }) {
               <div>
                 <b>Confirm:</b> bill <b>{usd(pending)}</b> per packet for{" "}
                 <b>{a.billing_customer}</b> — {a.packets} packets ={" "}
-                <b>{usd(pending * a.packets)}</b> this period. By {by.trim()}, effective{" "}
-                {effective}. This saves an approved override; Salesforce is not modified.
+                <b>{usd(pending * a.packets)}</b> this period. By <b>{actor}</b>, effective{" "}
+                {effective}. This saves an approved override and applies to future periods too;
+                Salesforce is not modified and closed periods do not change.
               </div>
               <div className="rc-actions">
                 <button className="btn ok sm" onClick={commit} disabled={saving}>

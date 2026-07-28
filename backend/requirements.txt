@@ -4,3 +4,11 @@ pydantic==2.10.4
 python-multipart==0.0.20
 psycopg[binary]==3.2.3
 python-dotenv==1.0.1
+
+# Reads the month's usage from the Keboola-managed Snowflake warehouse.
+# Imported lazily in app/sources/keboola.py so the app still boots without it —
+# a deployment missing the driver reports that on /api/health rather than
+# failing to start. It is the heaviest dependency here; if it ever becomes a
+# problem for serverless cold starts, Snowflake's SQL REST API is a drop-in
+# replacement behind the same UsageSource interface.
+snowflake-connector-python==3.12.3

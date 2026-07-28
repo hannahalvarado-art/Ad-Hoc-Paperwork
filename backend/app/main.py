@@ -8,8 +8,12 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from fastapi.responses import JSONResponse
 
+from . import auth as auth_mod
+from . import slack
 from .db import DATABASE_URL, DatabaseUnavailable, connect, init_db, scalar
-from .routers import comparison, config, dashboard, overrides, pipeline
+from .periods import PeriodClosed
+from .routers import auth, billing, comparison, config, cron, dashboard, overrides, pipeline
+from .sources import DEFAULT_SOURCE, get_source
 
 ORIGINS = os.environ.get(
     "ADHOC_CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173"
@@ -70,7 +74,21 @@ def _db_unavailable(request, exc: DatabaseUnavailable):
     )
 
 
-for r in (dashboard.router, overrides.router, config.router, pipeline.router, comparison.router):
+@app.exception_handler(PeriodClosed)
+def _period_closed(request, exc: PeriodClosed):
+    """409 with the reason.
+
+    Reached when a service refuses a write rather than a route checking first —
+    the point is that no path can accidentally modify a closed period without
+    somebody having deliberately removed this.
+    """
+    return JSONResponse(status_code=409, content={"detail": str(exc)})
+
+
+for r in (
+    dashboard.router, overrides.router, config.router, pipeline.router,
+    comparison.router, auth.router, billing.router, cron.router,
+):
     app.include_router(r)
 
 
@@ -107,7 +125,36 @@ def health():
                     "tables": tables,
                     "periods": 0,
                     "detail": "Schema is in place but no data has been loaded. Run seed.py.",
+                    **_subsystems(),
                 }
-            return {"status": "ok", "db": "connected", "tables": tables, "periods": periods}
+            return {
+                "status": "ok", "db": "connected", "tables": tables, "periods": periods,
+                **_subsystems(),
+            }
     except Exception as exc:  # surfaced as JSON, not a stack trace
         return {"status": "error", "db": "unreachable", "detail": str(exc)}
+
+
+def _subsystems() -> dict:
+    """Everything else that can be misconfigured, named rather than inferred.
+
+    The database was already reported this way; auth, the usage source and
+    Slack are the three new things that can be silently absent, and each one
+    fails in a way that looks like something else (no sign-in button, an empty
+    month, a notification that never arrives).
+    """
+    source = get_source()
+    return {
+        "auth": {
+            "configured": auth_mod.configured(),
+            "dev_mode": auth_mod.DEV_AUTH and bool(auth_mod.DEV_USER),
+            "allowed_domain": auth_mod.ALLOWED_DOMAIN,
+            "admins_configured": bool(auth_mod.ADMIN_EMAILS),
+        },
+        "usage_source": {
+            "default": DEFAULT_SOURCE,
+            "available": source.available(),
+            "detail": source.describe(),
+        },
+        "slack": slack.config_status(),
+    }
