@@ -1,5 +1,18 @@
 import { useRef, useState } from "react";
 import { api } from "../api.js";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { fmt, usd, Pill, Notice, Loading } from "./Pill.jsx";
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
@@ -55,29 +68,30 @@ export default function ReviewQueue({ queue, loading, error, onChange, canAct, r
 
   return (
     <>
-      <div className="rev-tools">
-        <button
-          className="btn"
+      <div className="mb-3.5 flex flex-wrap items-center gap-2.5">
+        <Button
+          variant="surface"
+          size="app"
           disabled={busy || !canAct}
           onClick={() => fileRef.current?.click()}
         >
           Import approved overrides
-        </button>
+        </Button>
         <input
           ref={fileRef}
           type="file"
           accept="application/json,.json"
-          style={{ display: "none" }}
+          className="hidden"
           onChange={(e) => {
             const f = e.target.files?.[0];
             if (f) importOverrides(f);
             e.target.value = "";
           }}
         />
-        <button className="btn" disabled={busy} onClick={exportOverrides}>
+        <Button variant="surface" size="app" disabled={busy} onClick={exportOverrides}>
           Export approved overrides
-        </button>
-        <span className="count" style={{ marginLeft: "auto", fontSize: 12.5, color: "var(--muted)" }}>
+        </Button>
+        <span className="ml-auto text-xs text-app-muted">
           {queue ? `${queue.confirmed} of ${queue.total} accounts confirmed` : ""}
         </span>
       </div>
@@ -86,7 +100,7 @@ export default function ReviewQueue({ queue, loading, error, onChange, canAct, r
       {error && <Notice kind="error">{error}</Notice>}
 
       {queue?.accounts?.length ? (
-        <div className="revgrid">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(380px,1fr))] gap-3.5">
           {queue.accounts.map((a) => (
             <ReviewCard
               key={a.sf_account_id}
@@ -100,7 +114,7 @@ export default function ReviewQueue({ queue, loading, error, onChange, canAct, r
           ))}
         </div>
       ) : (
-        <div className="empty">
+        <div className="px-4 py-7 text-center text-[13.5px] text-app-muted">
           No accounts awaiting a CSM price. Every billable account has a price.
         </div>
       )}
@@ -177,126 +191,139 @@ function ReviewCard({ account: a, onChange, onNotice, canAct, readOnly, auth }) 
   const o = a.override;
 
   return (
-    <div className={`rcard ${o ? "confirmed" : ""}`}>
-      <div className="rc-head">
+    <Card
+      variant="app"
+      className={`gap-3 px-[18px] py-4 ${o ? "border-conf shadow-[0_0_0_1px_var(--conf-soft),var(--shadow)]" : ""}`}
+    >
+      <div className="flex items-start justify-between gap-2.5">
         <div>
-          <div className="rc-cust">{a.billing_customer}</div>
-          <div className="rc-sub">
-            SF: {a.sf_account_name} · <span className="mono">{a.sf_account_id}</span>
+          <div className="text-[15px] font-[660]">{a.billing_customer}</div>
+          <div className="mt-0.5 text-xs text-app-muted">
+            SF: {a.sf_account_name} · <span className="font-mono">{a.sf_account_id}</span>
           </div>
         </div>
         <Pill flag={o ? "CSM_CONFIRMED_PRICE" : "CSM_CONFIRM_PRICE"} />
       </div>
 
-      <div className="rc-meta">
+      <div className="grid grid-cols-2 gap-x-3.5 gap-y-1.5 text-[12.5px]">
         <div>
-          <span className="k">CSM</span>
+          <span className="block text-[10.5px] tracking-[.04em] text-app-faint uppercase">CSM</span>
           {a.csm}
         </div>
         <div>
-          <span className="k">Billable packets</span>
+          <span className="block text-[10.5px] tracking-[.04em] text-app-faint uppercase">
+            Billable packets
+          </span>
           {fmt(a.packets)} · {fmt(a.workers)} workers
         </div>
         <div>
-          <span className="k">Salesforce pricing</span>
+          <span className="block text-[10.5px] tracking-[.04em] text-app-faint uppercase">
+            Salesforce pricing
+          </span>
           Not Configured
         </div>
         <div>
-          <span className="k">Current expected price</span>
+          <span className="block text-[10.5px] tracking-[.04em] text-app-faint uppercase">
+            Current expected price
+          </span>
           {o ? (
             `${usd(o.confirmed_unit_price)} /packet`
           ) : (
-            <b style={{ color: "var(--review)" }}>Needs confirmation</b>
+            <b className="text-review">Needs confirmation</b>
           )}
         </div>
       </div>
 
-      <div className="rc-reason">Reason: {a.reason}</div>
+      <div className="rounded-lg bg-review-soft px-2.5 py-2 text-xs font-medium text-review">
+        Reason: {a.reason}
+      </div>
 
       {o ? (
         <>
-          <div className="audit">
-            <div className="a">
-              <span className="muted">Salesforce pricing</span>
-              <b>Not Configured</b>
-            </div>
-            <div className="a">
-              <span className="muted">Billing price used</span>
-              <b>{usd(o.confirmed_unit_price)} /packet</b>
-            </div>
-            <div className="a">
-              <span className="muted">Pricing source</span>
-              <b>CSM Confirmed Override</b>
-            </div>
-            <div className="a">
-              <span className="muted">Expected for period</span>
-              <b>{usd(a.period_expected)}</b>
-            </div>
+          <div className="grid gap-0.5 rounded-[9px] bg-app-surface-2 px-3 py-2.5 text-xs">
+            {[
+              ["Salesforce pricing", "Not Configured"],
+              ["Billing price used", `${usd(o.confirmed_unit_price)} /packet`],
+              ["Pricing source", "CSM Confirmed Override"],
+              ["Expected for period", usd(a.period_expected)],
+            ].map(([k, v]) => (
+              <div key={k} className="flex justify-between gap-2.5">
+                <span className="text-app-muted">{k}</span>
+                <b className="tabular-nums">{v}</b>
+              </div>
+            ))}
           </div>
-          <div className="confirmed-by">
-            Confirmed by <b>{o.confirmed_by}</b> · {(o.confirmed_at || "").replace("T", " ").slice(0, 16)} ·
-            effective {o.effective_date}
+          <div className="text-xs text-app-muted">
+            Confirmed by <b>{o.confirmed_by}</b> ·{" "}
+            {(o.confirmed_at || "").replace("T", " ").slice(0, 16)} · effective {o.effective_date}
             {o.note ? ` · “${o.note}”` : ""}
           </div>
-          <div className="rc-actions">
-            <button
-              className="btn sm ghost"
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="appGhost"
+              size="appSm"
               disabled={saving || !canAct || readOnly}
               onClick={revoke}
             >
               Revoke and re-confirm
-            </button>
+            </Button>
           </div>
         </>
       ) : (
-        <div className="rc-form">
-          <label className="opt">
-            <input
-              type="radio"
-              name={`opt-${a.sf_account_id}`}
-              checked={mode === "zero"}
-              onChange={() => setMode("zero")}
-            />
-            <span>
-              Confirm this customer is billed <b>$0</b> per Ad Hoc Paperwork packet
-            </span>
-          </label>
-          <label className="opt">
-            <input
-              type="radio"
-              name={`opt-${a.sf_account_id}`}
-              checked={mode === "price"}
-              onChange={() => setMode("price")}
-            />
-            <span>Confirm another price:</span>
-            <span className="price-in">
-              <span className="dol">$</span>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                placeholder="0.00"
-                aria-label="Unit price per packet"
-                value={price}
-                onChange={(e) => {
-                  setPrice(e.target.value);
-                  setMode("price");
-                }}
-              />
-              <span className="muted">/packet</span>
-            </span>
-          </label>
+        <div className="flex flex-col gap-2.5 border-t border-app-border pt-3">
+          <RadioGroup value={mode ?? ""} onValueChange={setMode} className="gap-2.5">
+            <div className="flex items-center gap-2.5 text-[13px]">
+              <RadioGroupItem value="zero" id={`zero-${a.sf_account_id}`} />
+              {/* block, not Label's default flex: the sentence has inline <b>
+                  in it and flex would space each fragment as its own item. */}
+              <Label
+                htmlFor={`zero-${a.sf_account_id}`}
+                className="block leading-normal font-normal"
+              >
+                Confirm this customer is billed <b>$0</b> per Ad Hoc Paperwork packet
+              </Label>
+            </div>
+            <div className="flex flex-wrap items-center gap-2.5 text-[13px]">
+              <RadioGroupItem value="price" id={`price-${a.sf_account_id}`} />
+              <Label
+                htmlFor={`price-${a.sf_account_id}`}
+                className="block leading-normal font-normal"
+              >
+                Confirm another price:
+              </Label>
+              <span className="flex items-center gap-1.5">
+                <span className="font-semibold text-app-muted">$</span>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="0.00"
+                  aria-label="Unit price per packet"
+                  className="w-[120px]"
+                  value={price}
+                  onChange={(e) => {
+                    setPrice(e.target.value);
+                    setMode("price");
+                  }}
+                />
+                <span className="text-app-muted">/packet</span>
+              </span>
+            </div>
+          </RadioGroup>
 
-          <div className="row2">
-            <div className="fld">
-              <span className="k">Confirmed by</span>
-              <div className="fld-static" title="Taken from your session, not typed">
-                {actor || <span className="faint">sign in to confirm</span>}
+          <div className="grid grid-cols-2 gap-2.5">
+            <div className="flex flex-col gap-1">
+              <span className="text-[11px] font-semibold text-app-muted">Confirmed by</span>
+              <div
+                className="border-b border-dashed border-app-border-strong py-1.5 text-[13px] text-app-ink-2"
+                title="Taken from your session, not typed"
+              >
+                {actor || <span className="text-app-faint">sign in to confirm</span>}
               </div>
             </div>
-            <div className="fld">
-              <span className="k">Effective date</span>
-              <input
+            <div className="flex flex-col gap-1">
+              <span className="text-[11px] font-semibold text-app-muted">Effective date</span>
+              <Input
                 type="date"
                 value={effective}
                 onChange={(e) => setEffective(e.target.value)}
@@ -304,9 +331,9 @@ function ReviewCard({ account: a, onChange, onNotice, canAct, readOnly, auth }) 
             </div>
           </div>
 
-          <div className="fld">
-            <span className="k">Note (optional)</span>
-            <input
+          <div className="flex flex-col gap-1">
+            <span className="text-[11px] font-semibold text-app-muted">Note (optional)</span>
+            <Input
               type="text"
               placeholder="e.g. contract rate per CSM"
               value={note}
@@ -314,46 +341,53 @@ function ReviewCard({ account: a, onChange, onNotice, canAct, readOnly, auth }) 
             />
           </div>
 
-          {err && <div className="err">{err}</div>}
+          {err && <div className="text-xs text-missing">{err}</div>}
 
-          <div className="rc-actions">
-            <button
-              className="btn primary sm"
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="primary"
+              size="appSm"
               onClick={review}
               disabled={saving || !canAct || readOnly}
               title={
-                readOnly
-                  ? "This period is closed"
-                  : canAct
-                    ? ""
-                    : "Sign in to confirm a price"
+                readOnly ? "This period is closed" : canAct ? "" : "Sign in to confirm a price"
               }
             >
               Review and confirm…
-            </button>
+            </Button>
           </div>
 
-          {pending !== null && (
-            <div className="confirm-strip">
-              <div>
-                <b>Confirm:</b> bill <b>{usd(pending)}</b> per packet for{" "}
-                <b>{a.billing_customer}</b> — {a.packets} packets ={" "}
-                <b>{usd(pending * a.packets)}</b> this period. By <b>{actor}</b>, effective{" "}
-                {effective}. This saves an approved override and applies to future periods too;
-                Salesforce is not modified and closed periods do not change.
-              </div>
-              <div className="rc-actions">
-                <button className="btn ok sm" onClick={commit} disabled={saving}>
-                  {saving ? "Saving…" : "Yes, save override"}
-                </button>
-                <button className="btn ghost sm" onClick={() => setPending(null)} disabled={saving}>
+          {/* Saving an override is durable and applies to future periods, so
+              the final step is a modal rather than an inline strip that can
+              scroll out of view mid-decision. */}
+          <Dialog open={pending !== null} onOpenChange={(open) => !open && setPending(null)}>
+            <DialogContent className="sm:max-w-lg">
+              <DialogHeader>
+                <DialogTitle>Confirm {a.billing_customer}</DialogTitle>
+                <DialogDescription>
+                  Bill <b>{usd(pending ?? 0)}</b> per packet — {a.packets} packets ={" "}
+                  <b>{usd((pending ?? 0) * a.packets)}</b> this period. By <b>{actor}</b>, effective{" "}
+                  {effective}. This saves an approved override and applies to future periods too;
+                  Salesforce is not modified and closed periods do not change.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button
+                  variant="appGhost"
+                  size="app"
+                  onClick={() => setPending(null)}
+                  disabled={saving}
+                >
                   Cancel
-                </button>
-              </div>
-            </div>
-          )}
+                </Button>
+                <Button variant="ok" size="app" onClick={commit} disabled={saving}>
+                  {saving ? "Saving…" : "Yes, save override"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       )}
-    </div>
+    </Card>
   );
 }

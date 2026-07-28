@@ -1,3 +1,17 @@
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { usd, Pill, Notice, Loading } from "./Pill.jsx";
 
 /** The rules panel, driven by the live config tables rather than by prose
@@ -14,10 +28,21 @@ export default function MethodNotes({ config, loading, error }) {
         <h2>Logic and assumptions</h2>
         <span className="hint">read from the live rule tables</span>
       </div>
-      <div className="method">
-        <details open>
-          <summary>Pricing hierarchy and CSM overrides</summary>
-          <div className="body">
+      {/* The accordion root is laid out as the two-column card grid rather than
+          a single stack, so each rule group stays its own panel. */}
+      {/* multiple, because these were four independent <details> — opening the
+          mapping rules must not collapse the pricing hierarchy. Base UI
+          defaults this to false. */}
+      <Accordion
+        multiple
+        defaultValue={["pricing"]}
+        className="grid gap-3.5 md:grid-cols-2"
+      >
+        <AccordionItem value="pricing" className={ITEM}>
+          <AccordionTrigger className={TRIGGER}>
+            Pricing hierarchy and CSM overrides
+          </AccordionTrigger>
+          <AccordionContent className={CONTENT}>
             <Rule k="1 · Salesforce">
               Contracted Ad Hoc Paperwork price from a Closed-Won opportunity → use it
             </Rule>
@@ -33,27 +58,29 @@ export default function MethodNotes({ config, loading, error }) {
               note and effective date — stored server-side and reused across periods
             </Rule>
             <Rule k="Outlier guard">
-              A Salesforce price above <code>{usd(threshold ?? 16)}</code> is held for review rather
+              A Salesforce price above <Code>{usd(threshold ?? 16)}</Code> is held for review rather
               than billed
             </Rule>
             <Rule k="Salesforce">
               Never modified — overrides live only in the approved-override layer
             </Rule>
-          </div>
-        </details>
+          </AccordionContent>
+        </AccordionItem>
 
-        <details>
-          <summary>Customer mapping, entity splits and exclusions</summary>
-          <div className="body">
+        <AccordionItem value="mapping" className={ITEM}>
+          <AccordionTrigger className={TRIGGER}>
+            Customer mapping, entity splits and exclusions
+          </AccordionTrigger>
+          <AccordionContent className={CONTENT}>
             {mappings.map((m) => (
               <Rule key={m.source_customer} k={m.source_customer}>
                 Billed under <b>{m.billing_customer}</b>
-                <span className="muted"> — {m.reason}</span>
+                <span className="text-app-muted"> — {m.reason}</span>
               </Rule>
             ))}
             {splits.map((s) => (
               <Rule key={s.id} k={s.source_customer.split(" ")[0]}>
-                Contract-name split: <code>{s.token_b}</code> → {s.entity_b}, <code>{s.token_a}</code>{" "}
+                Contract-name split: <Code>{s.token_b}</Code> → {s.entity_b}, <Code>{s.token_a}</Code>{" "}
                 → {s.entity_a}. A contract naming both is resolved by sender (
                 {s.senders.map((x) => x.sender_name).join(", ") || "none configured"}), otherwise
                 held for review.
@@ -61,7 +88,7 @@ export default function MethodNotes({ config, loading, error }) {
             ))}
             {exclusions.map((e) => (
               <Rule key={e.source_customer} k="Excluded">
-                <b>{e.source_customer}</b> — <code>CUSTOMER_EXCLUDED</code>, retained for audit
+                <b>{e.source_customer}</b> — <Code>CUSTOMER_EXCLUDED</Code>, retained for audit
               </Rule>
             ))}
             {/* "Nothing configured" is a claim about the rule tables, so it is
@@ -70,8 +97,7 @@ export default function MethodNotes({ config, loading, error }) {
                 made a broken request indistinguishable from an empty ruleset. */}
             {error ? (
               <Notice kind="error">
-                {error} — rules could not be loaded, so this list is not the live
-                configuration.
+                {error} — rules could not be loaded, so this list is not the live configuration.
               </Notice>
             ) : loading ? (
               <Loading rows={2} />
@@ -79,15 +105,15 @@ export default function MethodNotes({ config, loading, error }) {
               !mappings.length &&
               !splits.length &&
               !exclusions.length && (
-                <p className="muted">No mapping, split or exclusion rules configured.</p>
+                <p className="text-app-muted">No mapping, split or exclusion rules configured.</p>
               )
             )}
-          </div>
-        </details>
+          </AccordionContent>
+        </AccordionItem>
 
-        <details>
-          <summary>Population, period and dedupe</summary>
-          <div className="body">
+        <AccordionItem value="population" className={ITEM}>
+          <AccordionTrigger className={TRIGGER}>Population, period and dedupe</AccordionTrigger>
+          <AccordionContent className={CONTENT}>
             <Rule k="Include">
               Completed signature packets, excluding W-4, disciplinary, read-only, job-contract and
               test or internal documents
@@ -99,54 +125,65 @@ export default function MethodNotes({ config, loading, error }) {
               Worker + document + sent + signed; only contract-ID differences collapse, and contract
               names and IDs are preserved
             </Rule>
-          </div>
-        </details>
+          </AccordionContent>
+        </AccordionItem>
 
-        <details>
-          <summary>Salesforce accounts and prices</summary>
-          <div className="body">
+        <AccordionItem value="accounts" className={ITEM}>
+          <AccordionTrigger className={TRIGGER}>Salesforce accounts and prices</AccordionTrigger>
+          <AccordionContent className={CONTENT}>
             {error && <Notice kind="error">{error}</Notice>}
             {loading && <Loading rows={3} />}
-            <table style={{ fontSize: 12.5 }}>
-              <thead>
-                <tr>
-                  <th>Account</th>
-                  <th>CSM</th>
-                  <th className="r">Ad Hoc price</th>
-                </tr>
-              </thead>
-              <tbody>
+            <Table className="text-[12.5px]">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Account</TableHead>
+                  <TableHead>CSM</TableHead>
+                  <TableHead className="text-right">Ad Hoc price</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {(config?.accounts ?? []).map((a) => (
-                  <tr key={a.account_id}>
-                    <td>
+                  <TableRow key={a.account_id}>
+                    <TableCell>
                       {a.name}
                       <br />
-                      <span className="faint mono" style={{ fontSize: 11 }}>
-                        {a.account_id}
-                      </span>
-                    </td>
-                    <td className="muted">{a.csm || "—"}</td>
-                    <td className="r num">
+                      <span className="font-mono text-[11px] text-app-faint">{a.account_id}</span>
+                    </TableCell>
+                    <TableCell className="text-app-muted">{a.csm || "—"}</TableCell>
+                    <TableCell className="text-right tabular-nums">
                       {a.adhoc_price == null ? (
-                        <span className="faint">not configured</span>
+                        <span className="text-app-faint">not configured</span>
                       ) : (
                         usd(a.adhoc_price)
                       )}
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
-          </div>
-        </details>
-      </div>
+              </TableBody>
+            </Table>
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
     </section>
   );
 }
 
+// Each panel is its own card, matching the surrounding dashboard rather than
+// the flat stacked accordion shadcn ships by default.
+const ITEM =
+  "self-start rounded-xl border border-app-border bg-app-surface px-4 not-last:border-b";
+const TRIGGER = "py-3.5 text-sm font-[620] hover:no-underline";
+const CONTENT = "pb-4 text-[13.5px] text-app-ink-2";
+
+const Code = ({ children }) => (
+  <code className="rounded-[5px] bg-app-surface-2 px-1.5 py-px font-mono text-xs text-app-ink">
+    {children}
+  </code>
+);
+
 const Rule = ({ k, children }) => (
-  <div className="rule-row">
-    <div className="k">{k}</div>
-    <div className="v">{children}</div>
+  <div className="flex gap-2.5 border-b border-dashed border-app-border py-2.5 last:border-b-0">
+    <div className="w-[150px] flex-none text-[12.5px] text-app-muted">{k}</div>
+    <div className="text-[13.5px] text-app-ink">{children}</div>
   </div>
 );

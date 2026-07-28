@@ -1,6 +1,24 @@
 import { useState } from "react";
 import { api } from "../api.js";
-import { fmt, usd, Notice, Loading } from "./Pill.jsx";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { fmt, usd, Notice, Loading, StatusPill } from "./Pill.jsx";
+
+const TONE = {
+  ok: "text-ok",
+  review: "text-review",
+  accent: "text-app-accent",
+  "": "text-app-ink",
+};
 
 /** Accounting's counts and the manual controls.
  *
@@ -57,12 +75,12 @@ export default function AccountingPanel({ data, loading, error, period, canAct, 
         </span>
       </div>
 
-      <div className="acct-grid">
+      <div className="mb-3.5 grid grid-cols-2 gap-2.5 md:grid-cols-4">
         {cards.map((c) => (
-          <div key={c.label} className={`acct-card ${c.tone}`}>
-            <div className="v num">{c.value}</div>
-            <div className="label">{c.label}</div>
-          </div>
+          <Card key={c.label} variant="app" className="gap-0 rounded-[10px] px-3.5 py-3">
+            <div className={`text-[22px] font-[650] tabular-nums ${TONE[c.tone]}`}>{c.value}</div>
+            <div className="mt-0.5 text-[11.5px] text-app-muted">{c.label}</div>
+          </Card>
         ))}
       </div>
 
@@ -72,9 +90,10 @@ export default function AccountingPanel({ data, loading, error, period, canAct, 
         <Notice>Cannot mark ready to bill yet — {data.ready_blocked_reason}.</Notice>
       )}
 
-      <div className="rev-tools">
-        <button
-          className="btn"
+      <div className="mb-3.5 flex flex-wrap items-center gap-2.5">
+        <Button
+          variant="surface"
+          size="app"
           disabled={!canAct || readOnly || !!busy}
           onClick={() =>
             act("run", async () => {
@@ -89,10 +108,11 @@ export default function AccountingPanel({ data, loading, error, period, canAct, 
           }
         >
           {busy === "run" ? "Running…" : "Run / re-run period"}
-        </button>
+        </Button>
 
-        <button
-          className="btn"
+        <Button
+          variant="surface"
+          size="app"
           disabled={!canAct || readOnly || !!busy}
           onClick={() =>
             act("usage", async () => {
@@ -102,10 +122,11 @@ export default function AccountingPanel({ data, loading, error, period, canAct, 
           }
         >
           Refresh usage
-        </button>
+        </Button>
 
-        <button
-          className="btn"
+        <Button
+          variant="surface"
+          size="app"
           disabled={!canAct || readOnly || !!busy}
           onClick={() =>
             act("pricing", async () => {
@@ -115,10 +136,11 @@ export default function AccountingPanel({ data, loading, error, period, canAct, 
           }
         >
           Refresh pricing
-        </button>
+        </Button>
 
-        <button
-          className="btn"
+        <Button
+          variant="surface"
+          size="app"
           disabled={!!busy}
           onClick={async () => {
             setBusy("preview");
@@ -132,10 +154,11 @@ export default function AccountingPanel({ data, loading, error, period, canAct, 
           }}
         >
           Preview Slack message
-        </button>
+        </Button>
 
-        <button
-          className="btn"
+        <Button
+          variant="surface"
+          size="app"
           disabled={!canAct || !!busy}
           onClick={() =>
             act("notify", async () => {
@@ -147,49 +170,78 @@ export default function AccountingPanel({ data, loading, error, period, canAct, 
           }
         >
           Resend review notification
-        </button>
+        </Button>
 
-        <button
-          className="btn"
+        <Button
+          variant="surface"
+          size="app"
           disabled={!canAct || readOnly || !!busy || !data.can_mark_ready}
           title={data.can_mark_ready ? "" : data.ready_blocked_reason}
-          onClick={() => act("ready", async () => {
-            await api.markReady(label);
-            return "Period marked Ready to Bill.";
-          })}
+          onClick={() =>
+            act("ready", async () => {
+              await api.markReady(label);
+              return "Period marked Ready to Bill.";
+            })
+          }
         >
           Mark ready to bill
-        </button>
+        </Button>
 
-        <button
-          className="btn danger"
+        <Button
+          variant="danger"
+          size="app"
           disabled={!canAct || readOnly || !!busy}
           onClick={() => setClosing(true)}
         >
           Close period
-        </button>
+        </Button>
       </div>
 
       {/* Closing is the one irreversible action, so it asks for the period
-          label rather than a yes/no a stray click could satisfy. */}
-      {closing && (
-        <div className="confirm-strip">
-          <div>
-            <b>Close {period.name}?</b> Closed periods are the billed record: automated refreshes
-            skip them, pricing changes do not reach back into them, and the customer totals are
-            frozen at today's values. Only an administrator can reopen one. Type{" "}
-            <b className="mono">{label}</b> to confirm.
-          </div>
-          <div className="rc-actions">
-            <input
-              type="text"
+          label rather than a yes/no a stray click could satisfy. A modal makes
+          that deliberate: it takes focus and cannot be scrolled past. */}
+      <Dialog
+        open={closing}
+        onOpenChange={(open) => {
+          setClosing(open);
+          if (!open) setConfirmText("");
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Close {period?.name}?</DialogTitle>
+            <DialogDescription>
+              Closed periods are the billed record: automated refreshes skip them, pricing changes
+              do not reach back into them, and the customer totals are frozen at today's values.
+              Only an administrator can reopen one.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-2">
+            <label htmlFor="close-confirm" className="text-[12.5px] text-app-ink-2">
+              Type <b className="font-mono">{label}</b> to confirm.
+            </label>
+            <Input
+              id="close-confirm"
               value={confirmText}
               placeholder={label}
               aria-label="Type the period label to confirm"
               onChange={(e) => setConfirmText(e.target.value)}
             />
-            <button
-              className="btn danger sm"
+          </div>
+          <DialogFooter>
+            <Button
+              variant="appGhost"
+              size="app"
+              onClick={() => {
+                setClosing(false);
+                setConfirmText("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              size="app"
               disabled={confirmText !== label || !!busy}
               onClick={() =>
                 act("close", async () => {
@@ -201,41 +253,32 @@ export default function AccountingPanel({ data, loading, error, period, canAct, 
               }
             >
               Yes, close it
-            </button>
-            <button
-              className="btn ghost sm"
-              onClick={() => {
-                setClosing(false);
-                setConfirmText("");
-              }}
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-      {preview && (
-        <div className="slack-preview">
-          <div className="sp-head">
-            <b>Slack preview</b>
-            <span className={`status-pill s-${preview.mode}`}>{preview.mode}</span>
-            {preview.mode !== "live" && (
-              <span className="hint">mentions are inert — nobody is notified</span>
-            )}
-            {preview.already_sent && (
-              <span className="hint">a review notification was already sent for this period</span>
-            )}
-            <button className="btn sm ghost" onClick={() => setPreview(null)}>
-              Close
-            </button>
-          </div>
-          <pre>{preview.message}</pre>
-        </div>
-      )}
+      <Dialog open={!!preview} onOpenChange={(open) => !open && setPreview(null)}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex flex-wrap items-center gap-2.5">
+              Slack preview
+              {preview && <StatusPill status={preview.mode} />}
+            </DialogTitle>
+            <DialogDescription>
+              {preview?.mode !== "live" && "Mentions are inert — nobody is notified. "}
+              {preview?.already_sent &&
+                "A review notification was already sent for this period."}
+            </DialogDescription>
+          </DialogHeader>
+          <pre className="max-h-[60vh] overflow-auto rounded-[10px] border border-app-border bg-app-surface-2 p-3.5 font-mono text-[12.5px] break-words whitespace-pre-wrap text-app-ink-2">
+            {preview?.message}
+          </pre>
+        </DialogContent>
+      </Dialog>
 
       {data.latest_run && (
-        <div className="runline">
+        <div className="mt-2.5 text-xs text-app-faint">
           Last run #{data.latest_run.id} · {data.latest_run.run_type} · {data.latest_run.status}
           {data.latest_run.finished_at ? ` · ${data.latest_run.finished_at}` : ""}
           {data.latest_run.actor ? ` · ${data.latest_run.actor}` : ""}

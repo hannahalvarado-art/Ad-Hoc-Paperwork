@@ -1,4 +1,14 @@
-import { Pill } from "./Pill.jsx";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Notice, StatusPill } from "./Pill.jsx";
 
 /** Month switcher plus who you are.
  *
@@ -10,64 +20,90 @@ export default function PeriodBar({ periods, value, onChange, period, auth, onSi
   const list = periods?.periods ?? [];
   const readOnly = period?.read_only;
 
+  // Base UI renders the selected item's label from `items`, so the closed
+  // suffix has to be part of the label rather than appended in the option.
+  const items = list.map((p) => ({
+    value: p.label,
+    label: `${p.name}${p.status === "CLOSED" ? " · closed" : ""}`,
+  }));
+
   return (
-    <div className="periodbar">
-      <div className="pb-left">
-        <label className="pb-label" htmlFor="period-select">
+    <Card
+      variant="app"
+      className="mb-3.5 flex-row flex-wrap items-center gap-3 rounded-xl px-3.5 py-2.5"
+    >
+      <div className="flex flex-wrap items-center gap-2.5">
+        <Label htmlFor="period-select" className="text-xs font-normal text-app-muted">
           Billing period
-        </label>
-        <select
-          id="period-select"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          aria-label="Billing period"
-        >
-          {!list.length && <option value="">—</option>}
-          {list.map((p) => (
-            <option key={p.label} value={p.label}>
-              {p.name}
-              {p.status === "CLOSED" ? " · closed" : ""}
-            </option>
-          ))}
-        </select>
+        </Label>
+        <Select items={items} value={value} onValueChange={onChange}>
+          <SelectTrigger id="period-select" size="sm" aria-label="Billing period">
+            <SelectValue placeholder="—" />
+          </SelectTrigger>
+          <SelectContent>
+            {items.map((i) => (
+              <SelectItem key={i.value} value={i.value}>
+                {i.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
         {period && (
           <>
-            <span className={`status-pill s-${(period.status || "").toLowerCase()}`}>
-              {period.status?.replace(/_/g, " ")}
-            </span>
-            <span className="pb-range">
+            <StatusPill status={period.status} />
+            <span className="text-xs text-app-faint">
               {period.period_start} → {period.period_end} · by sent date
             </span>
           </>
         )}
       </div>
 
-      <div className="pb-right">
-        {readOnly && <span className="pb-ro">Read-only — this period is closed</span>}
+      <div className="ml-auto flex flex-wrap items-center gap-2.5">
+        {readOnly && (
+          <span className="rounded-full border border-review bg-review-soft px-2.5 py-0.5 text-xs text-review">
+            Read-only — this period is closed
+          </span>
+        )}
         {auth?.authenticated ? (
           <>
-            <span className="pb-user" title={auth.user.email}>
+            <span
+              className="inline-flex items-center gap-1.5 text-[12.5px] text-app-ink-2"
+              title={auth.user.email}
+            >
               {auth.user.email}
-              {auth.user.is_admin && <span className="pb-admin">admin</span>}
+              {auth.user.is_admin && (
+                <span className="rounded-full border border-app-border-strong px-1.5 py-px text-[10.5px] tracking-[.04em] text-app-muted uppercase">
+                  admin
+                </span>
+              )}
             </span>
             {auth.dev_mode ? (
-              <span className="pb-dev" title="ADHOC_DEV_AUTH is set — not a real session">
+              <span
+                className="rounded-full border border-review bg-review-soft px-1.5 py-px text-[10.5px] tracking-[.04em] text-review uppercase"
+                title="ADHOC_DEV_AUTH is set — not a real session"
+              >
                 dev auth
               </span>
             ) : (
-              <button className="btn sm ghost" onClick={onSignOut}>
+              <Button variant="appGhost" size="appSm" onClick={onSignOut}>
                 Sign out
-              </button>
+              </Button>
             )}
           </>
         ) : (
-          <a className="btn sm primary" href="/api/auth/login">
-            Sign in
-          </a>
+          // nativeButton={false} because this is a real navigation to the
+          // OAuth endpoint, so it has to stay an <a>. Base UI otherwise warns
+          // that it lost native button semantics.
+          <Button
+            variant="primary"
+            size="appSm"
+            nativeButton={false}
+            render={<a href="/api/auth/login">Sign in</a>}
+          />
         )}
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -75,7 +111,7 @@ export default function PeriodBar({ periods, value, onChange, period, auth, onSi
 export function SignInNotice({ auth }) {
   if (!auth || auth.authenticated) return null;
   return (
-    <div className="notice">
+    <Notice>
       {auth.configured ? (
         <>
           <b>You are not signed in.</b> The numbers below are visible, but confirming a price or
@@ -86,11 +122,11 @@ export function SignInNotice({ auth }) {
         <>
           <b>Authentication is not configured.</b> Price confirmations and Good to Bill approvals
           are disabled, because there is no way to record who performed them. Set{" "}
-          <span className="mono">GOOGLE_CLIENT_ID</span>,{" "}
-          <span className="mono">GOOGLE_CLIENT_SECRET</span> and{" "}
-          <span className="mono">ADHOC_SESSION_SECRET</span>.
+          <span className="font-mono">GOOGLE_CLIENT_ID</span>,{" "}
+          <span className="font-mono">GOOGLE_CLIENT_SECRET</span> and{" "}
+          <span className="font-mono">ADHOC_SESSION_SECRET</span>.
         </>
       )}
-    </div>
+    </Notice>
   );
 }

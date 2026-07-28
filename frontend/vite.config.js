@@ -1,10 +1,19 @@
+import path from "node:path";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
 
 // /api is proxied to the FastAPI dev server so the frontend can use
 // same-origin relative URLs in both development and production.
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
+  // shadcn/ui generates imports like "@/lib/utils"; mirrored in jsconfig.json
+  // so the editor resolves them too.
+  resolve: {
+    alias: {
+      "@": path.resolve(import.meta.dirname, "./src"),
+    },
+  },
   server: {
     port: 5173,
     // Vite rejects requests whose Host header it doesn't recognise, which

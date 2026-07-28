@@ -1,5 +1,24 @@
 import { useMemo, useState } from "react";
 import { api } from "../api.js";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableFooter,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { fmt, usd, Pill, Notice, Loading } from "./Pill.jsx";
 
 const COLUMNS = [
@@ -30,6 +49,8 @@ const FILTERS = [
   { key: "blocked", label: "Blocked" },
 ];
 
+const ALL_CSMS = "__all__";
+
 export default function SummaryTable({ data, loading, error, period, canAct, onChange }) {
   const [sort, setSort] = useState({ key: "expected_amount", dir: -1 });
   const [filter, setFilter] = useState("");
@@ -56,7 +77,7 @@ export default function SummaryTable({ data, loading, error, period, canAct, onC
   if (loading) return <Loading rows={4} />;
   if (error) return <Notice kind="error">{error}</Notice>;
   if (!data?.rows?.length) {
-    return <div className="empty">No billable activity in this period.</div>;
+    return <div className="px-4 py-7 text-center text-[13.5px] text-app-muted">No billable activity in this period.</div>;
   }
 
   const click = (key) =>
@@ -91,44 +112,62 @@ export default function SummaryTable({ data, loading, error, period, canAct, onC
   };
 
   const t = data.totals;
+  const csmItems = [
+    { value: ALL_CSMS, label: "All CSMs" },
+    ...(data.csms ?? []).map((n) => ({ value: n, label: n })),
+  ];
 
   return (
     <>
-      <div className="filters">
+      <div className="mb-3 flex flex-wrap items-center gap-2.5">
         {FILTERS.map((f) => (
-          <button
+          <Button
             key={f.key}
-            className={`chip ${filter === f.key ? "on" : ""}`}
+            variant={filter === f.key ? "chipOn" : "chip"}
+            size="chip"
             onClick={() => setFilter(f.key)}
           >
             {f.label}
-          </button>
+          </Button>
         ))}
         {(data.csms?.length ?? 0) > 0 && (
-          <select value={csm} onChange={(e) => setCsm(e.target.value)} aria-label="Filter by CSM">
-            <option value="">All CSMs</option>
-            {data.csms.map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
-            ))}
-          </select>
+          <Select
+            items={csmItems}
+            value={csm || ALL_CSMS}
+            onValueChange={(v) => setCsm(v === ALL_CSMS ? "" : v)}
+          >
+            <SelectTrigger size="sm" aria-label="Filter by CSM">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {csmItems.map((i) => (
+                <SelectItem key={i.value} value={i.value}>
+                  {i.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         )}
-        <span className="count">
+        <span className="ml-auto text-xs text-app-muted">
           {rows.length} of {data.rows.length} customers
         </span>
       </div>
 
       {notice && <Notice kind={notice.kind}>{notice.text}</Notice>}
 
-      <div className="card scroll">
-        <table>
-          <thead>
-            <tr>
+      <Card variant="app" className="gap-0 py-0">
+        <Table>
+          <TableHeader>
+            <TableRow>
               {COLUMNS.map((c) => (
-                <th
+                <TableHead
                   key={c.key}
-                  className={[c.right ? "r" : "", c.sortable ? "sortable" : ""].join(" ").trim()}
+                  className={[
+                    c.right ? "text-right" : "",
+                    c.sortable ? "cursor-pointer select-none" : "",
+                  ]
+                    .join(" ")
+                    .trim()}
                   onClick={c.sortable ? () => click(c.key) : undefined}
                   aria-sort={
                     sort.key === c.key ? (sort.dir > 0 ? "ascending" : "descending") : undefined
@@ -136,15 +175,15 @@ export default function SummaryTable({ data, loading, error, period, canAct, onC
                 >
                   {c.label}{" "}
                   {c.sortable && (
-                    <span className="ar">
+                    <span className="text-[10px] opacity-50">
                       {sort.key === c.key ? (sort.dir > 0 ? "▲" : "▼") : ""}
                     </span>
                   )}
-                </th>
+                </TableHead>
               ))}
-            </tr>
-          </thead>
-          <tbody>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {rows.map((r) => {
               const id = `${r.billing_customer}|${r.salesforce_account_id}`;
               const busy = pending === id;
@@ -159,95 +198,118 @@ export default function SummaryTable({ data, loading, error, period, canAct, onC
                 : r.good_to_bill_blocked_reason;
 
               return (
-                <tr key={id} className={r.review_status === "CUSTOMER_EXCLUDED" ? "excluded" : ""}>
-                  <td className="cust">
+                <TableRow
+                  key={id}
+                  className={r.review_status === "CUSTOMER_EXCLUDED" ? "opacity-60" : ""}
+                >
+                  <TableCell className="font-semibold text-app-ink">
                     {r.billing_customer}
                     {r.source_customers?.length > 1 && (
-                      <div className="sub">via {r.source_customers.join(", ")}</div>
+                      <div className="mt-px text-[11px] text-app-faint">
+                        via {r.source_customers.join(", ")}
+                      </div>
                     )}
-                  </td>
-                  <td className="muted">
+                  </TableCell>
+                  <TableCell className="text-app-muted">
                     {r.salesforce_account || "—"}
                     {r.salesforce_account_id && (
-                      <div className="sub mono">{r.salesforce_account_id}</div>
+                      <div className="mt-px font-mono text-[11px] text-app-faint">
+                        {r.salesforce_account_id}
+                      </div>
                     )}
-                  </td>
-                  <td className="muted">{r.csm}</td>
-                  <td className="r num">
+                  </TableCell>
+                  <TableCell className="text-app-muted">{r.csm}</TableCell>
+                  <TableCell className="text-right tabular-nums">
                     {fmt(r.billable_packets)}
                     {r.excluded_packets > 0 && (
-                      <div className="sub">{fmt(r.excluded_packets)} excluded</div>
+                      <div className="mt-px text-[11px] text-app-faint">
+                        {fmt(r.excluded_packets)} excluded
+                      </div>
                     )}
-                  </td>
-                  <td className="r num muted">
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums text-app-muted">
                     {r.unit_prices?.length ? r.unit_prices.map(usd).join(" / ") : "—"}
-                  </td>
-                  <td className="muted small">
+                  </TableCell>
+                  <TableCell className="text-xs text-app-muted">
                     {r.pricing_source}
                     {r.pricing_status === "CSM_CONFIRMED_PRICE" && (
-                      <div className="sub">Salesforce: {r.sf_pricing_status}</div>
+                      <div className="mt-px text-[11px] text-app-faint">
+                        Salesforce: {r.sf_pricing_status}
+                      </div>
                     )}
-                  </td>
-                  <td>
+                  </TableCell>
+                  <TableCell>
                     <Pill flag={pillFor(r)}>{REVIEW_LABEL[r.review_status] ?? r.review_status}</Pill>
                     {r.blocking_exceptions?.length > 0 && (
-                      <div className="sub">{r.blocking_exceptions.join(", ")}</div>
+                      <div className="mt-px text-[11px] text-app-faint">
+                        {r.blocking_exceptions.join(", ")}
+                      </div>
                     )}
-                  </td>
-                  <td className="r money">
+                  </TableCell>
+                  <TableCell className="text-right font-semibold tabular-nums">
                     {r.expected_amount > 0 ? (
                       usd(r.expected_amount)
                     ) : r.review_status === "CSM_REVIEW_REQUIRED" ? (
-                      <span className="faint">pending</span>
+                      <span className="text-app-faint">pending</span>
                     ) : (
                       usd(0)
                     )}
-                  </td>
-                  <td>
-                    <label className="gtb" title={why}>
-                      <input
-                        type="checkbox"
+                  </TableCell>
+                  <TableCell>
+                    <label
+                      className={`flex items-start gap-2 text-[12.5px] ${
+                        why ? "cursor-not-allowed" : "cursor-pointer"
+                      }`}
+                      title={why}
+                    >
+                      <Checkbox
+                        className="mt-px"
                         checked={!!r.good_to_bill}
                         disabled={busy || !!why}
-                        onChange={(e) => toggle(r, e.target.checked)}
+                        onCheckedChange={(next) => toggle(r, next)}
                       />
                       <span>
                         {r.good_to_bill ? (
                           <>
                             <b>Approved</b>
-                            <div className="sub">
+                            <div className="mt-px text-[11px] text-app-faint">
                               {r.approved_by} · {(r.approved_at || "").slice(0, 16)}
                             </div>
                           </>
                         ) : why ? (
-                          <span className="faint">{why}</span>
+                          <span className="text-app-faint">{why}</span>
                         ) : (
                           "Good to Bill"
                         )}
                       </span>
                     </label>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               );
             })}
-          </tbody>
-          <tfoot>
-            <tr>
-              <td className="cust">Total</td>
-              <td />
-              <td />
-              <td className="r num">{fmt(t.total_billable_packets)}</td>
-              <td />
-              <td />
-              <td className="muted" style={{ fontSize: 12 }}>
-                {fmt(t.customers_good_to_bill)} approved · {fmt(t.customers_not_yet_approved)} not yet
-              </td>
-              <td className="r money">{usd(t.expected_amount)}</td>
-              <td />
-            </tr>
-          </tfoot>
-        </table>
-      </div>
+          </TableBody>
+          <TableFooter>
+            <TableRow>
+              <TableCell className="font-semibold text-app-ink">Total</TableCell>
+              <TableCell />
+              <TableCell />
+              <TableCell className="text-right tabular-nums">
+                {fmt(t.total_billable_packets)}
+              </TableCell>
+              <TableCell />
+              <TableCell />
+              <TableCell className="text-xs text-app-muted">
+                {fmt(t.customers_good_to_bill)} approved · {fmt(t.customers_not_yet_approved)} not
+                yet
+              </TableCell>
+              <TableCell className="text-right font-semibold tabular-nums">
+                {usd(t.expected_amount)}
+              </TableCell>
+              <TableCell />
+            </TableRow>
+          </TableFooter>
+        </Table>
+      </Card>
     </>
   );
 }

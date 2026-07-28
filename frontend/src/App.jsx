@@ -9,6 +9,7 @@ import MethodNotes from "./components/MethodNotes.jsx";
 import AccountingPanel from "./components/AccountingPanel.jsx";
 import PeriodBar, { SignInNotice } from "./components/PeriodBar.jsx";
 import { Notice } from "./components/Pill.jsx";
+import { Alert } from "@/components/ui/alert";
 
 export default function App() {
   // The month being viewed. Empty means "whatever the server considers
@@ -65,15 +66,15 @@ export default function App() {
         </p>
       </header>
 
-      <div className="banner">
-        <span className="dot" />
+      <Alert className="my-[22px] mb-[30px] flex items-start gap-3 rounded-xl border-app-border-strong bg-app-accent-soft px-4 py-3 text-[13.5px] text-app-ink-2">
+        <span className="mt-[5px] size-2.5 flex-none rounded-full bg-ok shadow-[0_0_0_3px_var(--ok-soft)]" />
         <div>
-          <b>No invoices are issued and Salesforce is never modified.</b> CSM confirmations live in
-          a separate approved-override layer. Pricing order: Salesforce contracted price → approved
-          CSM override → otherwise CSM Confirm Price. An unconfirmed price is never treated as $0.
-          Closed periods are immutable.
+          <b className="text-app-ink">No invoices are issued and Salesforce is never modified.</b>{" "}
+          CSM confirmations live in a separate approved-override layer. Pricing order: Salesforce
+          contracted price → approved CSM override → otherwise CSM Confirm Price. An unconfirmed
+          price is never treated as $0. Closed periods are immutable.
         </div>
-      </div>
+      </Alert>
 
       {fatal && (
         <Notice kind="error">

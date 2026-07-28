@@ -1,4 +1,14 @@
+import { Card } from "@/components/ui/card";
 import { fmt, usd, Loading } from "./Pill.jsx";
+
+// Tone drives only the figure's colour. The card itself stays neutral so a
+// row of four doesn't read as four different kinds of thing.
+const TONE = {
+  accent: "text-app-accent",
+  ok: "text-ok",
+  review: "text-review",
+  "": "text-app-ink",
+};
 
 export default function KpiRow({ kpis, loading }) {
   if (loading || !kpis) return <Loading rows={2} />;
@@ -31,13 +41,19 @@ export default function KpiRow({ kpis, loading }) {
   ];
 
   return (
-    <div className="kpis">
+    <div className="mb-4 grid grid-cols-2 gap-3.5 md:grid-cols-4">
       {cards.map((c) => (
-        <div key={c.label} className={`kpi ${c.tone}`}>
-          <div className="label">{c.label}</div>
-          <div className="v num">{c.value}</div>
-          <div className="foot">{c.foot}</div>
-        </div>
+        <Card key={c.label} variant="app" className="gap-0 px-[18px] py-4">
+          <div className="text-[11px] font-[650] tracking-[.09em] text-app-muted uppercase">
+            {c.label}
+          </div>
+          <div
+            className={`mt-2.5 text-3xl leading-none font-bold tracking-[-.02em] tabular-nums ${TONE[c.tone]}`}
+          >
+            {c.value}
+          </div>
+          <div className="mt-2 text-[12.5px] text-app-muted">{c.foot}</div>
+        </Card>
       ))}
     </div>
   );
