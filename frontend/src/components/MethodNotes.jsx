@@ -13,6 +13,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { usd, Pill, Notice, Loading } from "./Pill.jsx";
+import Section from "./Section.jsx";
 
 /** The rules panel, driven by the live config tables rather than by prose
  *  hardcoded in the markup — so it cannot drift from what the pipeline does. */
@@ -23,11 +24,7 @@ export default function MethodNotes({ config, loading, error }) {
   const threshold = config?.settings?.find((s) => s.key === "price_outlier_threshold")?.value;
 
   return (
-    <section>
-      <div className="sec-h">
-        <h2>Logic and assumptions</h2>
-        <span className="hint">read from the live rule tables</span>
-      </div>
+    <Section title="Logic and assumptions" hint="read from the live rule tables">
       {/* The accordion root is laid out as the two-column card grid rather than
           a single stack, so each rule group stays its own panel. */}
       {/* multiple, because these were four independent <details> — opening the
@@ -75,7 +72,7 @@ export default function MethodNotes({ config, loading, error }) {
             {mappings.map((m) => (
               <Rule key={m.source_customer} k={m.source_customer}>
                 Billed under <b>{m.billing_customer}</b>
-                <span className="text-app-muted"> — {m.reason}</span>
+                <span className="text-muted-foreground"> — {m.reason}</span>
               </Rule>
             ))}
             {splits.map((s) => (
@@ -105,7 +102,7 @@ export default function MethodNotes({ config, loading, error }) {
               !mappings.length &&
               !splits.length &&
               !exclusions.length && (
-                <p className="text-app-muted">No mapping, split or exclusion rules configured.</p>
+                <p className="text-muted-foreground">No mapping, split or exclusion rules configured.</p>
               )
             )}
           </AccordionContent>
@@ -147,12 +144,12 @@ export default function MethodNotes({ config, loading, error }) {
                     <TableCell>
                       {a.name}
                       <br />
-                      <span className="font-mono text-[11px] text-app-faint">{a.account_id}</span>
+                      <span className="font-mono text-[11px] text-muted-foreground/70">{a.account_id}</span>
                     </TableCell>
-                    <TableCell className="text-app-muted">{a.csm || "—"}</TableCell>
+                    <TableCell className="text-muted-foreground">{a.csm || "—"}</TableCell>
                     <TableCell className="text-right tabular-nums">
                       {a.adhoc_price == null ? (
-                        <span className="text-app-faint">not configured</span>
+                        <span className="text-muted-foreground/70">not configured</span>
                       ) : (
                         usd(a.adhoc_price)
                       )}
@@ -164,26 +161,25 @@ export default function MethodNotes({ config, loading, error }) {
           </AccordionContent>
         </AccordionItem>
       </Accordion>
-    </section>
+    </Section>
   );
 }
 
 // Each panel is its own card, matching the surrounding dashboard rather than
 // the flat stacked accordion shadcn ships by default.
-const ITEM =
-  "self-start rounded-xl border border-app-border bg-app-surface px-4 not-last:border-b";
+const ITEM = "self-start rounded-xl border bg-card px-4 not-last:border-b";
 const TRIGGER = "py-3.5 text-sm font-[620] hover:no-underline";
-const CONTENT = "pb-4 text-[13.5px] text-app-ink-2";
+const CONTENT = "pb-4 text-[13.5px] text-foreground/80";
 
 const Code = ({ children }) => (
-  <code className="rounded-[5px] bg-app-surface-2 px-1.5 py-px font-mono text-xs text-app-ink">
+  <code className="rounded-[5px] bg-muted px-1.5 py-px font-mono text-xs text-foreground">
     {children}
   </code>
 );
 
 const Rule = ({ k, children }) => (
-  <div className="flex gap-2.5 border-b border-dashed border-app-border py-2.5 last:border-b-0">
-    <div className="w-[150px] flex-none text-[12.5px] text-app-muted">{k}</div>
-    <div className="text-[13.5px] text-app-ink">{children}</div>
+  <div className="flex gap-2.5 border-b border-dashed border-border py-2.5 last:border-b-0">
+    <div className="w-[150px] flex-none text-[12.5px] text-muted-foreground">{k}</div>
+    <div className="text-[13.5px] text-foreground">{children}</div>
   </div>
 );

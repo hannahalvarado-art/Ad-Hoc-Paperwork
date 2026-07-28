@@ -18,21 +18,21 @@ const buttonVariants = cva(
         destructive:
           "bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40",
         link: "text-primary underline-offset-4 hover:underline",
-        // App variants — these carry the billing palette from styles.css.
-        // "surface" is the plain .btn; primary/ok/danger match .btn.primary,
-        // .btn.ok and .btn.danger so the conversion is colour-for-colour.
+        // Bordered variants built from shadcn tokens. "ok" and "danger" are the
+        // exception: they use the billing status colours because the hue is
+        // load-bearing there (see the status tokens in index.css).
         surface:
-          "border-app-border-strong bg-app-surface text-app-ink hover:bg-app-surface-2",
+          "border-input bg-card text-foreground hover:bg-muted",
         primary:
-          "border-app-accent bg-app-accent text-white hover:brightness-105",
+          "border-primary bg-primary text-primary-foreground hover:brightness-105",
         ok: "border-ok bg-ok text-white hover:brightness-105",
         danger:
-          "border-missing bg-app-surface text-missing hover:bg-missing-soft",
+          "border-missing bg-card text-missing hover:bg-missing-soft",
         appGhost:
-          "border-app-border-strong bg-transparent text-app-ink hover:bg-app-surface-2",
+          "border-input bg-transparent text-foreground hover:bg-muted",
         // Filter chips (.chip / .chip.on).
-        chip: "border-app-border-strong bg-app-surface text-app-ink-2 hover:bg-app-surface-2",
-        chipOn: "border-app-accent bg-app-accent-soft text-app-accent",
+        chip: "border-input bg-card text-foreground/80 hover:bg-muted",
+        chipOn: "border-primary bg-primary/10 text-primary",
       },
       size: {
         default:

@@ -77,7 +77,7 @@ export default function SummaryTable({ data, loading, error, period, canAct, onC
   if (loading) return <Loading rows={4} />;
   if (error) return <Notice kind="error">{error}</Notice>;
   if (!data?.rows?.length) {
-    return <div className="px-4 py-7 text-center text-[13.5px] text-app-muted">No billable activity in this period.</div>;
+    return <div className="px-4 py-7 text-center text-[13.5px] text-muted-foreground">No billable activity in this period.</div>;
   }
 
   const click = (key) =>
@@ -148,14 +148,14 @@ export default function SummaryTable({ data, loading, error, period, canAct, onC
             </SelectContent>
           </Select>
         )}
-        <span className="ml-auto text-xs text-app-muted">
+        <span className="ml-auto text-xs text-muted-foreground">
           {rows.length} of {data.rows.length} customers
         </span>
       </div>
 
       {notice && <Notice kind={notice.kind}>{notice.text}</Notice>}
 
-      <Card variant="app" className="gap-0 py-0">
+      <Card className="gap-0 py-0">
         <Table>
           <TableHeader>
             <TableRow>
@@ -202,38 +202,38 @@ export default function SummaryTable({ data, loading, error, period, canAct, onC
                   key={id}
                   className={r.review_status === "CUSTOMER_EXCLUDED" ? "opacity-60" : ""}
                 >
-                  <TableCell className="font-semibold text-app-ink">
+                  <TableCell className="font-semibold text-foreground">
                     {r.billing_customer}
                     {r.source_customers?.length > 1 && (
-                      <div className="mt-px text-[11px] text-app-faint">
+                      <div className="mt-px text-[11px] text-muted-foreground/70">
                         via {r.source_customers.join(", ")}
                       </div>
                     )}
                   </TableCell>
-                  <TableCell className="text-app-muted">
+                  <TableCell className="text-muted-foreground">
                     {r.salesforce_account || "—"}
                     {r.salesforce_account_id && (
-                      <div className="mt-px font-mono text-[11px] text-app-faint">
+                      <div className="mt-px font-mono text-[11px] text-muted-foreground/70">
                         {r.salesforce_account_id}
                       </div>
                     )}
                   </TableCell>
-                  <TableCell className="text-app-muted">{r.csm}</TableCell>
+                  <TableCell className="text-muted-foreground">{r.csm}</TableCell>
                   <TableCell className="text-right tabular-nums">
                     {fmt(r.billable_packets)}
                     {r.excluded_packets > 0 && (
-                      <div className="mt-px text-[11px] text-app-faint">
+                      <div className="mt-px text-[11px] text-muted-foreground/70">
                         {fmt(r.excluded_packets)} excluded
                       </div>
                     )}
                   </TableCell>
-                  <TableCell className="text-right tabular-nums text-app-muted">
+                  <TableCell className="text-right tabular-nums text-muted-foreground">
                     {r.unit_prices?.length ? r.unit_prices.map(usd).join(" / ") : "—"}
                   </TableCell>
-                  <TableCell className="text-xs text-app-muted">
+                  <TableCell className="text-xs text-muted-foreground">
                     {r.pricing_source}
                     {r.pricing_status === "CSM_CONFIRMED_PRICE" && (
-                      <div className="mt-px text-[11px] text-app-faint">
+                      <div className="mt-px text-[11px] text-muted-foreground/70">
                         Salesforce: {r.sf_pricing_status}
                       </div>
                     )}
@@ -241,7 +241,7 @@ export default function SummaryTable({ data, loading, error, period, canAct, onC
                   <TableCell>
                     <Pill flag={pillFor(r)}>{REVIEW_LABEL[r.review_status] ?? r.review_status}</Pill>
                     {r.blocking_exceptions?.length > 0 && (
-                      <div className="mt-px text-[11px] text-app-faint">
+                      <div className="mt-px text-[11px] text-muted-foreground/70">
                         {r.blocking_exceptions.join(", ")}
                       </div>
                     )}
@@ -250,7 +250,7 @@ export default function SummaryTable({ data, loading, error, period, canAct, onC
                     {r.expected_amount > 0 ? (
                       usd(r.expected_amount)
                     ) : r.review_status === "CSM_REVIEW_REQUIRED" ? (
-                      <span className="text-app-faint">pending</span>
+                      <span className="text-muted-foreground/70">pending</span>
                     ) : (
                       usd(0)
                     )}
@@ -272,12 +272,12 @@ export default function SummaryTable({ data, loading, error, period, canAct, onC
                         {r.good_to_bill ? (
                           <>
                             <b>Approved</b>
-                            <div className="mt-px text-[11px] text-app-faint">
+                            <div className="mt-px text-[11px] text-muted-foreground/70">
                               {r.approved_by} · {(r.approved_at || "").slice(0, 16)}
                             </div>
                           </>
                         ) : why ? (
-                          <span className="text-app-faint">{why}</span>
+                          <span className="text-muted-foreground/70">{why}</span>
                         ) : (
                           "Good to Bill"
                         )}
@@ -290,7 +290,7 @@ export default function SummaryTable({ data, loading, error, period, canAct, onC
           </TableBody>
           <TableFooter>
             <TableRow>
-              <TableCell className="font-semibold text-app-ink">Total</TableCell>
+              <TableCell className="font-semibold text-foreground">Total</TableCell>
               <TableCell />
               <TableCell />
               <TableCell className="text-right tabular-nums">
@@ -298,7 +298,7 @@ export default function SummaryTable({ data, loading, error, period, canAct, onC
               </TableCell>
               <TableCell />
               <TableCell />
-              <TableCell className="text-xs text-app-muted">
+              <TableCell className="text-xs text-muted-foreground">
                 {fmt(t.customers_good_to_bill)} approved · {fmt(t.customers_not_yet_approved)} not
                 yet
               </TableCell>

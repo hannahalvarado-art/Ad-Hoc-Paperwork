@@ -12,12 +12,13 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { fmt, usd, Notice, Loading, StatusPill } from "./Pill.jsx";
+import Section from "./Section.jsx";
 
 const TONE = {
   ok: "text-ok",
   review: "text-review",
-  accent: "text-app-accent",
-  "": "text-app-ink",
+  accent: "text-primary",
+  "": "text-foreground",
 };
 
 /** Accounting's counts and the manual controls.
@@ -66,20 +67,20 @@ export default function AccountingPanel({ data, loading, error, period, canAct, 
   ];
 
   return (
-    <section>
-      <div className="sec-h">
-        <h2>Accounting</h2>
-        <span className="hint">
+    <Section
+      title="Accounting"
+      hint={
+        <>
           {data.usage_source.describes}
           {!data.usage_source.available && " — not configured"}
-        </span>
-      </div>
-
+        </>
+      }
+    >
       <div className="mb-3.5 grid grid-cols-2 gap-2.5 md:grid-cols-4">
         {cards.map((c) => (
-          <Card key={c.label} variant="app" className="gap-0 rounded-[10px] px-3.5 py-3">
+          <Card key={c.label} className="gap-0 rounded-[10px] px-3.5 py-3">
             <div className={`text-[22px] font-[650] tabular-nums ${TONE[c.tone]}`}>{c.value}</div>
-            <div className="mt-0.5 text-[11.5px] text-app-muted">{c.label}</div>
+            <div className="mt-0.5 text-[11.5px] text-muted-foreground">{c.label}</div>
           </Card>
         ))}
       </div>
@@ -217,7 +218,7 @@ export default function AccountingPanel({ data, loading, error, period, canAct, 
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-2">
-            <label htmlFor="close-confirm" className="text-[12.5px] text-app-ink-2">
+            <label htmlFor="close-confirm" className="text-[12.5px] text-foreground/80">
               Type <b className="font-mono">{label}</b> to confirm.
             </label>
             <Input
@@ -271,20 +272,20 @@ export default function AccountingPanel({ data, loading, error, period, canAct, 
                 "A review notification was already sent for this period."}
             </DialogDescription>
           </DialogHeader>
-          <pre className="max-h-[60vh] overflow-auto rounded-[10px] border border-app-border bg-app-surface-2 p-3.5 font-mono text-[12.5px] break-words whitespace-pre-wrap text-app-ink-2">
+          <pre className="max-h-[60vh] overflow-auto rounded-[10px] border border-border bg-muted p-3.5 font-mono text-[12.5px] break-words whitespace-pre-wrap text-foreground/80">
             {preview?.message}
           </pre>
         </DialogContent>
       </Dialog>
 
       {data.latest_run && (
-        <div className="mt-2.5 text-xs text-app-faint">
+        <div className="mt-2.5 text-xs text-muted-foreground/70">
           Last run #{data.latest_run.id} · {data.latest_run.run_type} · {data.latest_run.status}
           {data.latest_run.finished_at ? ` · ${data.latest_run.finished_at}` : ""}
           {data.latest_run.actor ? ` · ${data.latest_run.actor}` : ""}
           {data.latest_run.error ? ` · ${data.latest_run.error}` : ""}
         </div>
       )}
-    </section>
+    </Section>
   );
 }

@@ -12,7 +12,7 @@ const alertVariants = cva(
         destructive:
           "bg-card text-destructive *:data-[slot=alert-description]:text-destructive/90 *:[svg]:text-current",
         // .notice and its two states.
-        surface: "border-app-border-strong bg-app-surface-2 text-app-ink-2",
+        surface: "border-input bg-muted text-foreground/80",
         error: "border-missing bg-missing-soft text-missing",
         ok: "border-ok bg-ok-soft text-ok",
       },

@@ -2,16 +2,9 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
-// The dashboard's own card look: a real 1px border plus the layered shadow
-// from styles.css, rather than shadcn's single hairline ring. Applied as a
-// variant so call sites stay terse and the two looks can't drift apart.
-const APP_CARD =
-  "rounded-[14px] border border-app-border bg-app-surface shadow-card ring-0";
-
 function Card({
   className,
   size = "default",
-  variant,
   ...props
 }) {
   return (
@@ -20,7 +13,6 @@ function Card({
       data-size={size}
       className={cn(
         "group/card flex flex-col gap-(--card-spacing) overflow-hidden rounded-xl bg-card py-(--card-spacing) text-sm text-card-foreground ring-1 ring-foreground/10 [--card-spacing:--spacing(4)] has-data-[slot=card-footer]:pb-0 has-[>img:first-child]:pt-0 data-[size=sm]:[--card-spacing:--spacing(3)] data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl",
-        variant === "app" && APP_CARD,
         className
       )}
       {...props} />

@@ -19,7 +19,7 @@ const badgeVariants = cva(
         ghost:
           "hover:bg-muted hover:text-muted-foreground dark:hover:bg-muted/50",
         link: "text-primary underline-offset-4 hover:underline",
-        // Billing flags (.p-* in styles.css). The colour is the meaning, so
+        // Billing flags. The colour is the meaning, so
         // these are not interchangeable with shadcn's neutral variants.
         ok: "bg-ok-soft text-ok",
         conf: "bg-conf-soft text-conf",
@@ -27,16 +27,16 @@ const badgeVariants = cva(
         outlier: "bg-outlier-soft text-outlier",
         missing: "bg-missing-soft text-missing",
         map: "bg-map-soft text-map",
-        excluded: "border-app-border-strong bg-app-surface-2 text-app-muted",
+        excluded: "border-input bg-muted text-muted-foreground",
         // Period/run status (.status-pill): bordered and uppercase.
         statusNeutral:
-          "border-app-border-strong bg-app-surface-2 text-app-muted uppercase tracking-[.03em]",
+          "border-input bg-muted text-muted-foreground uppercase tracking-[.03em]",
         statusReview:
           "border-review bg-review-soft text-review uppercase tracking-[.03em]",
         statusOk:
           "border-ok bg-ok-soft text-ok uppercase tracking-[.03em]",
         statusAccent:
-          "border-app-accent bg-app-accent-soft text-app-accent uppercase tracking-[.03em]",
+          "border-primary bg-primary/10 text-primary uppercase tracking-[.03em]",
         statusMissing:
           "border-missing bg-missing-soft text-missing uppercase tracking-[.03em]",
         statusConf:

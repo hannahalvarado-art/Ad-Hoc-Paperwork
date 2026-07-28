@@ -59,7 +59,7 @@ export function StatusPill({ status, children }) {
 }
 
 export const Dash = ({ value }) =>
-  value === "" || value == null ? <span className="text-app-faint">—</span> : value;
+  value === "" || value == null ? <span className="text-muted-foreground/70">—</span> : value;
 
 export function Notice({ kind = "", children }) {
   if (!children) return null;

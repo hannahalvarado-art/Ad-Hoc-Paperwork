@@ -4,7 +4,7 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
-// Carries the dashboard's table styling from styles.css: sticky headers over
+// The dashboard's table styling: sticky headers over
 // a scrolling body, 13.5px rows, and the border/hover pairs from the billing
 // palette. Set here rather than at each call site so the four tables in the
 // app cannot drift apart. Cells deliberately do not use whitespace-nowrap —
@@ -56,7 +56,7 @@ function TableFooter({
     <tfoot
       data-slot="table-footer"
       className={cn(
-        "border-t-2 border-app-border-strong bg-app-surface-2 font-[660] [&>tr]:last:border-b-0 [&_td]:border-b-0 [&_td]:px-3.5 [&_td]:py-3",
+        "border-t-2 border-input bg-muted font-[660] [&>tr]:last:border-b-0 [&_td]:border-b-0 [&_td]:px-3.5 [&_td]:py-3",
         className
       )}
       {...props} />
@@ -71,7 +71,7 @@ function TableRow({
     <tr
       data-slot="table-row"
       className={cn(
-        "transition-colors hover:bg-app-surface-2 has-aria-expanded:bg-app-surface-2 data-[state=selected]:bg-app-surface-2",
+        "transition-colors hover:bg-muted has-aria-expanded:bg-muted data-[state=selected]:bg-muted",
         className
       )}
       {...props} />
@@ -86,7 +86,7 @@ function TableHead({
     <th
       data-slot="table-head"
       className={cn(
-        "sticky top-0 z-[2] border-b border-app-border-strong bg-app-surface-2 px-3.5 py-[11px] text-left align-middle text-xs font-[620] tracking-[.02em] whitespace-nowrap text-app-ink-2 [&:has([role=checkbox])]:pr-0",
+        "sticky top-0 z-[2] border-b border-input bg-muted px-3.5 py-[11px] text-left align-middle text-xs font-[620] tracking-[.02em] whitespace-nowrap text-foreground/80 [&:has([role=checkbox])]:pr-0",
         className
       )}
       {...props} />
@@ -101,7 +101,7 @@ function TableCell({
     <td
       data-slot="table-cell"
       className={cn(
-        "border-b border-app-border px-3.5 py-2.5 align-middle [&:has([role=checkbox])]:pr-0",
+        "border-b border-border px-3.5 py-2.5 align-middle [&:has([role=checkbox])]:pr-0",
         className
       )}
       {...props} />
@@ -115,7 +115,7 @@ function TableCaption({
   return (
     <caption
       data-slot="table-caption"
-      className={cn("mt-4 text-sm text-app-muted", className)}
+      className={cn("mt-4 text-sm text-muted-foreground", className)}
       {...props} />
   );
 }

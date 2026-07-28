@@ -91,7 +91,7 @@ export default function ReviewQueue({ queue, loading, error, onChange, canAct, r
         <Button variant="surface" size="app" disabled={busy} onClick={exportOverrides}>
           Export approved overrides
         </Button>
-        <span className="ml-auto text-xs text-app-muted">
+        <span className="ml-auto text-xs text-muted-foreground">
           {queue ? `${queue.confirmed} of ${queue.total} accounts confirmed` : ""}
         </span>
       </div>
@@ -114,7 +114,7 @@ export default function ReviewQueue({ queue, loading, error, onChange, canAct, r
           ))}
         </div>
       ) : (
-        <div className="px-4 py-7 text-center text-[13.5px] text-app-muted">
+        <div className="px-4 py-7 text-center text-[13.5px] text-muted-foreground">
           No accounts awaiting a CSM price. Every billable account has a price.
         </div>
       )}
@@ -192,13 +192,12 @@ function ReviewCard({ account: a, onChange, onNotice, canAct, readOnly, auth }) 
 
   return (
     <Card
-      variant="app"
       className={`gap-3 px-[18px] py-4 ${o ? "border-conf shadow-[0_0_0_1px_var(--conf-soft),var(--shadow)]" : ""}`}
     >
       <div className="flex items-start justify-between gap-2.5">
         <div>
           <div className="text-[15px] font-[660]">{a.billing_customer}</div>
-          <div className="mt-0.5 text-xs text-app-muted">
+          <div className="mt-0.5 text-xs text-muted-foreground">
             SF: {a.sf_account_name} · <span className="font-mono">{a.sf_account_id}</span>
           </div>
         </div>
@@ -207,23 +206,23 @@ function ReviewCard({ account: a, onChange, onNotice, canAct, readOnly, auth }) 
 
       <div className="grid grid-cols-2 gap-x-3.5 gap-y-1.5 text-[12.5px]">
         <div>
-          <span className="block text-[10.5px] tracking-[.04em] text-app-faint uppercase">CSM</span>
+          <span className="block text-[10.5px] tracking-[.04em] text-muted-foreground/70 uppercase">CSM</span>
           {a.csm}
         </div>
         <div>
-          <span className="block text-[10.5px] tracking-[.04em] text-app-faint uppercase">
+          <span className="block text-[10.5px] tracking-[.04em] text-muted-foreground/70 uppercase">
             Billable packets
           </span>
           {fmt(a.packets)} · {fmt(a.workers)} workers
         </div>
         <div>
-          <span className="block text-[10.5px] tracking-[.04em] text-app-faint uppercase">
+          <span className="block text-[10.5px] tracking-[.04em] text-muted-foreground/70 uppercase">
             Salesforce pricing
           </span>
           Not Configured
         </div>
         <div>
-          <span className="block text-[10.5px] tracking-[.04em] text-app-faint uppercase">
+          <span className="block text-[10.5px] tracking-[.04em] text-muted-foreground/70 uppercase">
             Current expected price
           </span>
           {o ? (
@@ -240,7 +239,7 @@ function ReviewCard({ account: a, onChange, onNotice, canAct, readOnly, auth }) 
 
       {o ? (
         <>
-          <div className="grid gap-0.5 rounded-[9px] bg-app-surface-2 px-3 py-2.5 text-xs">
+          <div className="grid gap-0.5 rounded-[9px] bg-muted px-3 py-2.5 text-xs">
             {[
               ["Salesforce pricing", "Not Configured"],
               ["Billing price used", `${usd(o.confirmed_unit_price)} /packet`],
@@ -248,12 +247,12 @@ function ReviewCard({ account: a, onChange, onNotice, canAct, readOnly, auth }) 
               ["Expected for period", usd(a.period_expected)],
             ].map(([k, v]) => (
               <div key={k} className="flex justify-between gap-2.5">
-                <span className="text-app-muted">{k}</span>
+                <span className="text-muted-foreground">{k}</span>
                 <b className="tabular-nums">{v}</b>
               </div>
             ))}
           </div>
-          <div className="text-xs text-app-muted">
+          <div className="text-xs text-muted-foreground">
             Confirmed by <b>{o.confirmed_by}</b> ·{" "}
             {(o.confirmed_at || "").replace("T", " ").slice(0, 16)} · effective {o.effective_date}
             {o.note ? ` · “${o.note}”` : ""}
@@ -270,7 +269,7 @@ function ReviewCard({ account: a, onChange, onNotice, canAct, readOnly, auth }) 
           </div>
         </>
       ) : (
-        <div className="flex flex-col gap-2.5 border-t border-app-border pt-3">
+        <div className="flex flex-col gap-2.5 border-t border-border pt-3">
           <RadioGroup value={mode ?? ""} onValueChange={setMode} className="gap-2.5">
             <div className="flex items-center gap-2.5 text-[13px]">
               <RadioGroupItem value="zero" id={`zero-${a.sf_account_id}`} />
@@ -292,7 +291,7 @@ function ReviewCard({ account: a, onChange, onNotice, canAct, readOnly, auth }) 
                 Confirm another price:
               </Label>
               <span className="flex items-center gap-1.5">
-                <span className="font-semibold text-app-muted">$</span>
+                <span className="font-semibold text-muted-foreground">$</span>
                 <Input
                   type="number"
                   min="0"
@@ -306,23 +305,23 @@ function ReviewCard({ account: a, onChange, onNotice, canAct, readOnly, auth }) 
                     setMode("price");
                   }}
                 />
-                <span className="text-app-muted">/packet</span>
+                <span className="text-muted-foreground">/packet</span>
               </span>
             </div>
           </RadioGroup>
 
           <div className="grid grid-cols-2 gap-2.5">
             <div className="flex flex-col gap-1">
-              <span className="text-[11px] font-semibold text-app-muted">Confirmed by</span>
+              <span className="text-[11px] font-semibold text-muted-foreground">Confirmed by</span>
               <div
-                className="border-b border-dashed border-app-border-strong py-1.5 text-[13px] text-app-ink-2"
+                className="border-b border-dashed border-input py-1.5 text-[13px] text-foreground/80"
                 title="Taken from your session, not typed"
               >
-                {actor || <span className="text-app-faint">sign in to confirm</span>}
+                {actor || <span className="text-muted-foreground/70">sign in to confirm</span>}
               </div>
             </div>
             <div className="flex flex-col gap-1">
-              <span className="text-[11px] font-semibold text-app-muted">Effective date</span>
+              <span className="text-[11px] font-semibold text-muted-foreground">Effective date</span>
               <Input
                 type="date"
                 value={effective}
@@ -332,7 +331,7 @@ function ReviewCard({ account: a, onChange, onNotice, canAct, readOnly, auth }) 
           </div>
 
           <div className="flex flex-col gap-1">
-            <span className="text-[11px] font-semibold text-app-muted">Note (optional)</span>
+            <span className="text-[11px] font-semibold text-muted-foreground">Note (optional)</span>
             <Input
               type="text"
               placeholder="e.g. contract rate per CSM"

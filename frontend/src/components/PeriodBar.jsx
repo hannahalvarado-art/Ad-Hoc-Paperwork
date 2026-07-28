@@ -29,11 +29,10 @@ export default function PeriodBar({ periods, value, onChange, period, auth, onSi
 
   return (
     <Card
-      variant="app"
       className="mb-3.5 flex-row flex-wrap items-center gap-3 rounded-xl px-3.5 py-2.5"
     >
       <div className="flex flex-wrap items-center gap-2.5">
-        <Label htmlFor="period-select" className="text-xs font-normal text-app-muted">
+        <Label htmlFor="period-select" className="text-xs font-normal text-muted-foreground">
           Billing period
         </Label>
         <Select items={items} value={value} onValueChange={onChange}>
@@ -52,7 +51,7 @@ export default function PeriodBar({ periods, value, onChange, period, auth, onSi
         {period && (
           <>
             <StatusPill status={period.status} />
-            <span className="text-xs text-app-faint">
+            <span className="text-xs text-muted-foreground/70">
               {period.period_start} → {period.period_end} · by sent date
             </span>
           </>
@@ -68,12 +67,12 @@ export default function PeriodBar({ periods, value, onChange, period, auth, onSi
         {auth?.authenticated ? (
           <>
             <span
-              className="inline-flex items-center gap-1.5 text-[12.5px] text-app-ink-2"
+              className="inline-flex items-center gap-1.5 text-[12.5px] text-foreground/80"
               title={auth.user.email}
             >
               {auth.user.email}
               {auth.user.is_admin && (
-                <span className="rounded-full border border-app-border-strong px-1.5 py-px text-[10.5px] tracking-[.04em] text-app-muted uppercase">
+                <span className="rounded-full border border-input px-1.5 py-px text-[10.5px] tracking-[.04em] text-muted-foreground uppercase">
                   admin
                 </span>
               )}

@@ -9,6 +9,7 @@ import MethodNotes from "./components/MethodNotes.jsx";
 import AccountingPanel from "./components/AccountingPanel.jsx";
 import PeriodBar, { SignInNotice } from "./components/PeriodBar.jsx";
 import { Notice } from "./components/Pill.jsx";
+import Section from "./components/Section.jsx";
 import { Alert } from "@/components/ui/alert";
 
 export default function App() {
@@ -52,13 +53,15 @@ export default function App() {
   };
 
   return (
-    <div className="wrap">
+    <div className="mx-auto max-w-[1280px] px-6 pt-8 pb-20">
       <header>
-        <div className="eyebrow">
+        <div className="mb-1.5 font-serif text-[15px] text-muted-foreground italic">
           Ad Hoc Paperwork · monthly billing · {activePeriod?.billing_type_label ?? ""}
         </div>
-        <h1>{activePeriod?.name ?? "Billing"} — Ad Hoc Paperwork Reconciliation</h1>
-        <p className="sub">
+        <h1 className="text-[30px] leading-[1.15] font-[680] tracking-[-0.02em]">
+          {activePeriod?.name ?? "Billing"} — Ad Hoc Paperwork Reconciliation
+        </h1>
+        <p className="mt-2.5 max-w-[72ch] text-foreground/80">
           Expected usage-based charges for completed Ad Hoc Paperwork signature packets, by{" "}
           <b>sent date</b>. Where Salesforce has no Ad Hoc price, the account routes to a{" "}
           <b>CSM price review</b>; confirmed prices persist and apply to future periods
@@ -66,10 +69,10 @@ export default function App() {
         </p>
       </header>
 
-      <Alert className="my-[22px] mb-[30px] flex items-start gap-3 rounded-xl border-app-border-strong bg-app-accent-soft px-4 py-3 text-[13.5px] text-app-ink-2">
+      <Alert className="my-[22px] mb-[30px] flex items-start gap-3 rounded-xl border-input bg-primary/10 px-4 py-3 text-[13.5px] text-foreground/80">
         <span className="mt-[5px] size-2.5 flex-none rounded-full bg-ok shadow-[0_0_0_3px_var(--ok-soft)]" />
         <div>
-          <b className="text-app-ink">No invoices are issued and Salesforce is never modified.</b>{" "}
+          <b className="text-foreground">No invoices are issued and Salesforce is never modified.</b>{" "}
           CSM confirmations live in a separate approved-override layer. Pricing order: Salesforce
           contracted price → approved CSM override → otherwise CSM Confirm Price. An unconfirmed
           price is never treated as $0. Closed periods are immutable.
@@ -104,13 +107,10 @@ export default function App() {
         onChange={refresh}
       />
 
-      <section>
-        <div className="sec-h">
-          <h2>CSM price review</h2>
-          <span className="hint">
-            accounts with no Salesforce Ad Hoc price — confirm to release for billing
-          </span>
-        </div>
+      <Section
+        title="CSM price review"
+        hint="accounts with no Salesforce Ad Hoc price — confirm to release for billing"
+      >
         <ReviewQueue
           queue={queue.data}
           loading={queue.loading}
@@ -120,15 +120,12 @@ export default function App() {
           readOnly={readOnly}
           auth={auth.data}
         />
-      </section>
+      </Section>
 
-      <section>
-        <div className="sec-h">
-          <h2>Summary by billing customer</h2>
-          <span className="hint">
-            unique billable packets · unit price · pricing source · Good to Bill
-          </span>
-        </div>
+      <Section
+        title="Summary by billing customer"
+        hint="unique billable packets · unit price · pricing source · Good to Bill"
+      >
         <SummaryTable
           data={summary.data}
           loading={summary.loading}
@@ -137,17 +134,16 @@ export default function App() {
           canAct={canAct}
           onChange={refresh}
         />
-      </section>
+      </Section>
 
       <ExcludedTable rows={excluded.data} />
 
-      <section>
-        <div className="sec-h">
-          <h2>Paperwork events</h2>
-          <span className="hint">source and contract preserved; pricing hierarchy applied</span>
-        </div>
+      <Section
+        title="Paperwork events"
+        hint="source and contract preserved; pricing hierarchy applied"
+      >
         <EventTable period={activePeriod?.label ?? period} refreshKey={refreshKey} />
-      </section>
+      </Section>
 
       {/* config.error is deliberately not part of `fatal`: the rules panel is
           not needed to read the numbers, so a failed /api/config degrades that
@@ -156,7 +152,7 @@ export default function App() {
           entirely and the panel just claimed nothing was configured. */}
       <MethodNotes config={config.data} loading={config.loading} error={config.error} />
 
-      <div className="foot-note">
+      <div className="mt-10 flex flex-wrap gap-x-[22px] gap-y-1.5 border-t pt-[18px] text-[12.5px] text-muted-foreground">
         <span>
           <b>Pricing:</b> Salesforce → approved CSM override → CSM Confirm
         </span>

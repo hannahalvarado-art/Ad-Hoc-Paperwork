@@ -152,7 +152,7 @@ export default function EventTable({ period, refreshKey }) {
             ))}
           </SelectContent>
         </Select>
-        <span className="ml-auto text-xs text-app-muted">
+        <span className="ml-auto text-xs text-muted-foreground">
           {pageInfo &&
             `${fmt(pageInfo.from)}–${fmt(pageInfo.to)} of ${fmt(pageInfo.matched)} matched · ${fmt(
               pageInfo.total,
@@ -162,7 +162,7 @@ export default function EventTable({ period, refreshKey }) {
 
       {error && <Notice kind="error">{error}</Notice>}
 
-      <Card variant="app" className="gap-0 py-0">
+      <Card className="gap-0 py-0">
         {loading && !data ? (
           <div className="p-4">
             <Loading rows={6} />
@@ -204,12 +204,12 @@ export default function EventTable({ period, refreshKey }) {
                 const differs = r.billing_customer !== r.source_customer;
                 return (
                   <TableRow key={r.id}>
-                    <TableCell className="font-[550] text-app-ink">{r.source_customer}</TableCell>
+                    <TableCell className="font-[550] text-foreground">{r.source_customer}</TableCell>
                     <TableCell>
                       {differs ? (
                         <b>{r.billing_customer}</b>
                       ) : (
-                        <span className="text-app-faint">same</span>
+                        <span className="text-muted-foreground/70">same</span>
                       )}
                       {r.customer_mapping_applied && (
                         <span
@@ -220,36 +220,36 @@ export default function EventTable({ period, refreshKey }) {
                         </span>
                       )}
                     </TableCell>
-                    <TableCell className="text-[12.5px] text-app-muted">
+                    <TableCell className="text-[12.5px] text-muted-foreground">
                       <Dash value={r.salesforce_account} />
                     </TableCell>
                     <TableCell>{r.worker_name}</TableCell>
                     <TableCell>{r.paperwork_name}</TableCell>
                     <TableCell
-                      className="text-[12.5px] text-app-muted"
+                      className="text-[12.5px] text-muted-foreground"
                       title={r.contract_ids || ""}
                     >
                       <Dash value={r.contract_name} />
                     </TableCell>
-                    <TableCell className="tabular-nums text-app-muted">
+                    <TableCell className="tabular-nums text-muted-foreground">
                       <Dash value={r.sent_date} />
                     </TableCell>
                     <TableCell className="tabular-nums">
                       <Dash value={r.signed_date} />
                     </TableCell>
-                    <TableCell className="text-right tabular-nums text-app-muted">
+                    <TableCell className="text-right tabular-nums text-muted-foreground">
                       {r.unit_price != null ? (
                         usd(r.unit_price)
                       ) : (
-                        <span className="text-app-faint">—</span>
+                        <span className="text-muted-foreground/70">—</span>
                       )}
                     </TableCell>
-                    <TableCell className="text-xs text-app-muted">
-                      {r.pricing_source || <span className="text-app-faint">—</span>}
+                    <TableCell className="text-xs text-muted-foreground">
+                      {r.pricing_source || <span className="text-muted-foreground/70">—</span>}
                       {r.flag === "CSM_CONFIRMED_PRICE" && (
                         <>
                           <br />
-                          <span className="text-app-faint">SF: Not Configured</span>
+                          <span className="text-muted-foreground/70">SF: Not Configured</span>
                         </>
                       )}
                     </TableCell>
@@ -260,9 +260,9 @@ export default function EventTable({ period, refreshKey }) {
                       {r.charge != null ? (
                         usd(r.charge)
                       ) : r.flag === "CSM_CONFIRM_PRICE" ? (
-                        <span className="text-app-faint">pending</span>
+                        <span className="text-muted-foreground/70">pending</span>
                       ) : (
-                        <span className="text-app-faint">—</span>
+                        <span className="text-muted-foreground/70">—</span>
                       )}
                     </TableCell>
                   </TableRow>
@@ -271,7 +271,7 @@ export default function EventTable({ period, refreshKey }) {
               {data?.rows?.length === 0 && (
                 <TableRow className="hover:bg-transparent">
                   <TableCell colSpan={COLUMNS.length}>
-                    <div className="px-4 py-7 text-center text-[13.5px] text-app-muted">
+                    <div className="px-4 py-7 text-center text-[13.5px] text-muted-foreground">
                       No events match these filters. Clear the search or pick another status.
                     </div>
                   </TableCell>
@@ -282,7 +282,7 @@ export default function EventTable({ period, refreshKey }) {
         )}
       </Card>
 
-      <div className="mt-3 flex items-center gap-2.5 text-xs text-app-muted">
+      <div className="mt-3 flex items-center gap-2.5 text-xs text-muted-foreground">
         <Button
           variant="surface"
           size="appSm"
