@@ -16,10 +16,6 @@ export default defineConfig({
   },
   server: {
     port: 5173,
-    // Vite rejects requests whose Host header it doesn't recognise, which
-    // blocks tunnelled dev URLs. Listed here so `code` port forwarding and
-    // cloudflared/ngrok links reach the dev server; localhost is always allowed.
-    allowedHosts: [".devtunnels.ms", ".trycloudflare.com", ".ngrok-free.app"],
     proxy: {
       "/api": {
         target: process.env.API_URL || "http://127.0.0.1:8000",
